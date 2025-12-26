@@ -14,7 +14,287 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      friendships: {
+        Row: {
+          created_at: string
+          friend_id: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          friend_id: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          friend_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friendships_friend_id_fkey"
+            columns: ["friend_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "friendships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      game_invites: {
+        Row: {
+          created_at: string
+          expires_at: string
+          from_user_id: string
+          game_id: string | null
+          id: string
+          status: string
+          time_control: number | null
+          to_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          from_user_id: string
+          game_id?: string | null
+          id?: string
+          status?: string
+          time_control?: number | null
+          to_user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          from_user_id?: string
+          game_id?: string | null
+          id?: string
+          status?: string
+          time_control?: number | null
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_invites_from_user_id_fkey"
+            columns: ["from_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "game_invites_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "online_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_invites_to_user_id_fkey"
+            columns: ["to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      game_moves: {
+        Row: {
+          created_at: string
+          fen_after: string
+          from_square: string
+          game_id: string
+          id: string
+          move_number: number
+          player_id: string
+          san: string
+          to_square: string
+        }
+        Insert: {
+          created_at?: string
+          fen_after: string
+          from_square: string
+          game_id: string
+          id?: string
+          move_number: number
+          player_id: string
+          san: string
+          to_square: string
+        }
+        Update: {
+          created_at?: string
+          fen_after?: string
+          from_square?: string
+          game_id?: string
+          id?: string
+          move_number?: number
+          player_id?: string
+          san?: string
+          to_square?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_moves_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "online_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_moves_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      online_games: {
+        Row: {
+          black_player_id: string | null
+          black_time_remaining: number | null
+          completed_at: string | null
+          created_at: string
+          current_turn: string
+          fen: string
+          game_type: string
+          id: string
+          invite_code: string | null
+          pgn: string | null
+          result: string | null
+          status: string
+          time_control: number | null
+          updated_at: string
+          white_player_id: string | null
+          white_time_remaining: number | null
+          winner_id: string | null
+        }
+        Insert: {
+          black_player_id?: string | null
+          black_time_remaining?: number | null
+          completed_at?: string | null
+          created_at?: string
+          current_turn?: string
+          fen?: string
+          game_type?: string
+          id?: string
+          invite_code?: string | null
+          pgn?: string | null
+          result?: string | null
+          status?: string
+          time_control?: number | null
+          updated_at?: string
+          white_player_id?: string | null
+          white_time_remaining?: number | null
+          winner_id?: string | null
+        }
+        Update: {
+          black_player_id?: string | null
+          black_time_remaining?: number | null
+          completed_at?: string | null
+          created_at?: string
+          current_turn?: string
+          fen?: string
+          game_type?: string
+          id?: string
+          invite_code?: string | null
+          pgn?: string | null
+          result?: string | null
+          status?: string
+          time_control?: number | null
+          updated_at?: string
+          white_player_id?: string | null
+          white_time_remaining?: number | null
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_games_black_player_id_fkey"
+            columns: ["black_player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "online_games_white_player_id_fkey"
+            columns: ["white_player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "online_games_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          games_drawn: number
+          games_lost: number
+          games_played: number
+          games_won: number
+          id: string
+          is_online: boolean
+          last_seen: string | null
+          rating: number
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          games_drawn?: number
+          games_lost?: number
+          games_played?: number
+          games_won?: number
+          id?: string
+          is_online?: boolean
+          last_seen?: string | null
+          rating?: number
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          games_drawn?: number
+          games_lost?: number
+          games_played?: number
+          games_won?: number
+          id?: string
+          is_online?: boolean
+          last_seen?: string | null
+          rating?: number
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

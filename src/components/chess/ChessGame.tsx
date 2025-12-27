@@ -12,6 +12,8 @@ import HelpSection from './HelpSection';
 import Footer from './Footer';
 import OnlineLobby from './OnlineLobby';
 import OnlineGame from './OnlineGame';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChessGame } from '@/hooks/useChessGame';
 import { useTheme } from '@/hooks/useTheme';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -19,10 +21,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useOnlineGame } from '@/hooks/useOnlineGame';
 import { GameResult, GameMode, AIDifficulty } from '@/types/chess';
 import { Square } from 'chess.js';
+import { User, LogIn } from 'lucide-react';
 
 const ChessGame: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const {
     gameState,
     boardPosition,
@@ -190,6 +193,32 @@ const ChessGame: React.FC = () => {
           <div className="flex items-center gap-2">
             <ThemeSelector currentTheme={theme} onThemeChange={changeTheme} />
             <HelpSection />
+            
+            {user && profile ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/profile')}
+                className="rounded-full"
+              >
+                <Avatar className="w-8 h-8">
+                  <AvatarImage src={profile.avatar_url || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {profile.username[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/auth')}
+                className="gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>

@@ -41,6 +41,7 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
     findRandomGame, 
     createFriendGame, 
     joinFriendGame,
+    joinGameById,
     leaveGame 
   } = useOnlineGame(user?.id);
   const { 
@@ -424,7 +425,12 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                       <div className="flex gap-2">
                         <Button 
                           size="sm" 
-                          onClick={() => respondToGameInvite(invite.id, true)}
+                          onClick={async () => {
+                            const gameId = await respondToGameInvite(invite.id, true);
+                            if (gameId) {
+                              await joinGameById(gameId);
+                            }
+                          }}
                         >
                           Accept
                         </Button>

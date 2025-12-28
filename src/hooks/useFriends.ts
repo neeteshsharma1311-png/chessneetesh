@@ -319,12 +319,32 @@ export const useFriends = (userId: string | undefined) => {
     if (!userId) return null;
 
     try {
+      // Create the game first
+      const { data: game, error: gameError } = await supabase
+        .from('online_games')
+        .insert({
+          white_player_id: userId,
+          black_player_id: friendUserId,
+          status: 'waiting',
+          game_type: 'friend',
+          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          time_control: timeControl,
+          white_time_remaining: timeControl,
+          black_time_remaining: timeControl,
+        })
+        .select()
+        .single();
+
+      if (gameError) throw gameError;
+
+      // Create the invite with game_id
       const { data, error } = await supabase
         .from('game_invites')
         .insert({
           from_user_id: userId,
           to_user_id: friendUserId,
           time_control: timeControl,
+          game_id: game.id,
         })
         .select()
         .single();
@@ -348,8 +368,36 @@ export const useFriends = (userId: string | undefined) => {
     }
   }, [userId, toast]);
 
-  const respondToGameInvite = useCallback(async (inviteId: string, accept: boolean) => {
+  const respondToGameInvite = useCallback(async (inviteId: string, accept: boolean): Promise<string | null> => {
+    if (!userId) return null;
+
     try {
+      // Get the invite to find the game_id
+      const { data: invite, error: fetchError } = await supabase
+        .from('game_invites')
+        .select('*')
+        .eq('id', inviteId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (accept && invite.game_id) {
+        // Start the game
+        const { error: gameError } = await supabase
+          .from('online_games')
+          .update({ status: 'in_progress' })
+          .eq('id', invite.game_id);
+
+        if (gameError) throw gameError;
+      } else if (!accept && invite.game_id) {
+        // Cancel the game
+        await supabase
+          .from('online_games')
+          .update({ status: 'abandoned' })
+          .eq('id', invite.game_id);
+      }
+
+      // Update invite status
       const { error } = await supabase
         .from('game_invites')
         .update({ status: accept ? 'accepted' : 'declined' })
@@ -357,13 +405,23 @@ export const useFriends = (userId: string | undefined) => {
 
       if (error) throw error;
 
+      toast({
+        title: accept ? "Game starting!" : "Invite declined",
+        description: accept ? "Joining the game..." : "You declined the game invite.",
+      });
+
       fetchGameInvites();
-      return accept;
+      return accept && invite.game_id ? invite.game_id : null;
     } catch (error) {
       console.error('Error responding to invite:', error);
-      return false;
+      toast({
+        title: "Error",
+        description: "Failed to respond to invite.",
+        variant: "destructive",
+      });
+      return null;
     }
-  }, [fetchGameInvites]);
+  }, [userId, fetchGameInvites, toast]);
 
   // Subscribe to real-time updates
   useEffect(() => {
@@ -399,6 +457,24 @@ export const useFriends = (userId: string | undefined) => {
             });
           }
           fetchGameInvites();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_invites',
+          filter: `from_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const invite = payload.new as GameInvite;
+          if (invite.status === 'accepted' && invite.game_id) {
+            toast({
+              title: "Invite accepted!",
+              description: "Your friend accepted the game invite. Starting game...",
+            });
+          }
         }
       )
       .subscribe();

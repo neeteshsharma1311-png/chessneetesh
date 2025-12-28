@@ -43,6 +43,31 @@ export const useOnlineGame = (userId: string | undefined) => {
     setBoardPosition(chess.board());
   }, [chess]);
 
+  // Check for any active games where user is a player
+  useEffect(() => {
+    if (!userId) return;
+
+    const checkActiveGame = async () => {
+      const { data: games } = await supabase
+        .from('online_games')
+        .select('*')
+        .or(`white_player_id.eq.${userId},black_player_id.eq.${userId}`)
+        .in('status', ['waiting', 'in_progress'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (games && games.length > 0) {
+        const game = games[0];
+        setCurrentGame(game as OnlineGame);
+        setPlayerColor(game.white_player_id === userId ? 'w' : 'b');
+        chess.load(game.fen);
+        setBoardPosition(chess.board());
+      }
+    };
+
+    checkActiveGame();
+  }, [userId, chess]);
+
   // Subscribe to game updates
   useEffect(() => {
     if (!currentGame?.id) return;
@@ -96,6 +121,31 @@ export const useOnlineGame = (userId: string | undefined) => {
       supabase.removeChannel(channel);
     };
   }, [currentGame?.id, userId, chess, updateBoardFromFen]);
+
+  // Join a game by ID (when accepting an invite)
+  const joinGameById = useCallback(async (gameId: string) => {
+    if (!userId) return null;
+
+    try {
+      const { data: game, error } = await supabase
+        .from('online_games')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentGame(game as OnlineGame);
+      setPlayerColor(game.white_player_id === userId ? 'w' : 'b');
+      chess.load(game.fen);
+      setBoardPosition(chess.board());
+
+      return game;
+    } catch (error) {
+      console.error('Error joining game by ID:', error);
+      return null;
+    }
+  }, [userId, chess]);
 
   const findRandomGame = useCallback(async () => {
     if (!userId) return null;
@@ -458,6 +508,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     findRandomGame,
     createFriendGame,
     joinFriendGame,
+    joinGameById,
     selectSquare,
     resignGame,
     leaveGame,

@@ -72,19 +72,32 @@ export const useOnlineGame = (userId: string | undefined) => {
   useEffect(() => {
     if (!currentGame?.id) return;
 
+    console.log('Subscribing to game updates for:', currentGame.id);
+
     const channel = supabase
       .channel(`game-${currentGame.id}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'online_games',
           filter: `id=eq.${currentGame.id}`,
         },
         (payload) => {
+          console.log('Game update received:', payload);
           const updatedGame = payload.new as OnlineGame;
           setCurrentGame(updatedGame);
+          
+          // Update player color if not set
+          if (!playerColor && userId) {
+            if (updatedGame.white_player_id === userId) {
+              setPlayerColor('w');
+            } else if (updatedGame.black_player_id === userId) {
+              setPlayerColor('b');
+            }
+          }
+          
           updateBoardFromFen(updatedGame.fen);
         }
       )
@@ -97,6 +110,7 @@ export const useOnlineGame = (userId: string | undefined) => {
           filter: `game_id=eq.${currentGame.id}`,
         },
         (payload) => {
+          console.log('Move received:', payload);
           const move = payload.new as any;
           if (move.player_id !== userId) {
             // Opponent made a move
@@ -106,21 +120,24 @@ export const useOnlineGame = (userId: string | undefined) => {
             setMoveHistory(prev => [...prev, {
               from: move.from_square,
               to: move.to_square,
-              piece: 'p', // We'd need to track this
+              piece: 'p',
               san: move.san,
               flags: '',
             }]);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
 
     channelRef.current = channel;
 
     return () => {
+      console.log('Unsubscribing from game:', currentGame.id);
       supabase.removeChannel(channel);
     };
-  }, [currentGame?.id, userId, chess, updateBoardFromFen]);
+  }, [currentGame?.id, userId, chess, updateBoardFromFen, playerColor]);
 
   // Join a game by ID (when accepting an invite)
   const joinGameById = useCallback(async (gameId: string) => {

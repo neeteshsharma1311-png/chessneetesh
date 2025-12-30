@@ -319,12 +319,12 @@ export const useFriends = (userId: string | undefined) => {
     if (!userId) return null;
 
     try {
-      // Create the game first
+      // Create the game first - set inviter as white, wait for friend to join as black
       const { data: game, error: gameError } = await supabase
         .from('online_games')
         .insert({
           white_player_id: userId,
-          black_player_id: friendUserId,
+          black_player_id: null, // Will be set when friend accepts
           status: 'waiting',
           game_type: 'friend',
           fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -382,10 +382,13 @@ export const useFriends = (userId: string | undefined) => {
       if (fetchError) throw fetchError;
 
       if (accept && invite.game_id) {
-        // Start the game
+        // Join the game as black player and start it
         const { error: gameError } = await supabase
           .from('online_games')
-          .update({ status: 'in_progress' })
+          .update({ 
+            status: 'in_progress',
+            black_player_id: userId 
+          })
           .eq('id', invite.game_id);
 
         if (gameError) throw gameError;

@@ -80,13 +80,19 @@ const ChessGame: React.FC = () => {
     }
   }, [gameState.gameOver, gameState.gameStarted, playGameOver]);
 
-  // Show online game when currentGame exists
+  // Show online game when currentGame is in progress
   useEffect(() => {
-    if (currentGame && currentGame.status === 'in_progress') {
-      setShowOnlineGame(true);
-      setShowOnlineLobby(false);
+    if (currentGame) {
+      if (currentGame.status === 'in_progress') {
+        setShowOnlineGame(true);
+        setShowOnlineLobby(false);
+      } else if (currentGame.status === 'waiting') {
+        // Keep in lobby for waiting games
+        setShowOnlineLobby(true);
+        setShowOnlineGame(false);
+      }
     }
-  }, [currentGame]);
+  }, [currentGame, currentGame?.status]);
 
   // Play sounds on moves
   useEffect(() => {

@@ -383,7 +383,13 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                           <Button 
                             size="sm" 
                             disabled={!friend.is_online}
-                            onClick={() => sendGameInvite(friend.user_id)}
+                            onClick={async () => {
+                              const invite = await sendGameInvite(friend.user_id);
+                              if (invite?.game_id) {
+                                // Join the game we just created so we see it
+                                await joinGameById(invite.game_id);
+                              }
+                            }}
                           >
                             <Swords className="w-4 h-4 mr-1" />
                             Challenge

@@ -25,6 +25,17 @@ export interface GameInvite {
   from_profile?: Profile;
 }
 
+export interface SendGameInviteResult {
+  id: string;
+  game_id: string | null;
+  from_user_id: string;
+  to_user_id: string;
+  time_control: number;
+  status: string;
+  created_at: string;
+  expires_at: string;
+}
+
 export const useFriends = (userId: string | undefined) => {
   const [friends, setFriends] = useState<Friendship[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Friendship[]>([]);
@@ -315,7 +326,7 @@ export const useFriends = (userId: string | undefined) => {
     }
   }, [toast, fetchFriends]);
 
-  const sendGameInvite = useCallback(async (friendUserId: string, timeControl: number = 600) => {
+  const sendGameInvite = useCallback(async (friendUserId: string, timeControl: number = 600): Promise<SendGameInviteResult | null> => {
     if (!userId) return null;
 
     try {
@@ -356,7 +367,7 @@ export const useFriends = (userId: string | undefined) => {
         description: "Waiting for your friend to accept...",
       });
 
-      return data;
+      return data as SendGameInviteResult;
     } catch (error) {
       console.error('Error sending game invite:', error);
       toast({

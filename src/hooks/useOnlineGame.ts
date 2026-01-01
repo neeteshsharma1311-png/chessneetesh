@@ -48,7 +48,9 @@ export const useOnlineGame = (userId: string | undefined) => {
     if (!userId) return;
 
     const checkActiveGame = async () => {
-      const { data: games } = await supabase
+      console.log('useOnlineGame: Checking for active games for user:', userId);
+      
+      const { data: games, error } = await supabase
         .from('online_games')
         .select('*')
         .or(`white_player_id.eq.${userId},black_player_id.eq.${userId}`)
@@ -56,10 +58,19 @@ export const useOnlineGame = (userId: string | undefined) => {
         .order('created_at', { ascending: false })
         .limit(1);
 
+      if (error) {
+        console.error('useOnlineGame: Error fetching active games:', error);
+        return;
+      }
+
+      console.log('useOnlineGame: Active games found:', games?.length || 0, games);
+
       if (games && games.length > 0) {
         const game = games[0];
         setCurrentGame(game as OnlineGame);
-        setPlayerColor(game.white_player_id === userId ? 'w' : 'b');
+        const color = game.white_player_id === userId ? 'w' : 'b';
+        setPlayerColor(color);
+        console.log('useOnlineGame: Set player color to:', color, 'for game:', game.id);
         chess.load(game.fen);
         setBoardPosition(chess.board());
       }
@@ -72,7 +83,7 @@ export const useOnlineGame = (userId: string | undefined) => {
   useEffect(() => {
     if (!currentGame?.id) return;
 
-    console.log('Subscribing to game updates for:', currentGame.id);
+    console.log('useOnlineGame: Subscribing to game updates for:', currentGame.id);
 
     const channel = supabase
       .channel(`game-${currentGame.id}`)
@@ -85,15 +96,17 @@ export const useOnlineGame = (userId: string | undefined) => {
           filter: `id=eq.${currentGame.id}`,
         },
         (payload) => {
-          console.log('Game update received:', payload);
+          console.log('useOnlineGame: Game update received:', payload.new);
           const updatedGame = payload.new as OnlineGame;
           setCurrentGame(updatedGame);
           
           // Update player color if not set
           if (!playerColor && userId) {
             if (updatedGame.white_player_id === userId) {
+              console.log('useOnlineGame: Setting player color to w');
               setPlayerColor('w');
             } else if (updatedGame.black_player_id === userId) {
+              console.log('useOnlineGame: Setting player color to b');
               setPlayerColor('b');
             }
           }
@@ -110,7 +123,7 @@ export const useOnlineGame = (userId: string | undefined) => {
           filter: `game_id=eq.${currentGame.id}`,
         },
         (payload) => {
-          console.log('Move received:', payload);
+          console.log('useOnlineGame: Move received:', payload.new);
           const move = payload.new as any;
           if (move.player_id !== userId) {
             // Opponent made a move
@@ -128,13 +141,13 @@ export const useOnlineGame = (userId: string | undefined) => {
         }
       )
       .subscribe((status) => {
-        console.log('Subscription status:', status);
+        console.log('useOnlineGame: Subscription status:', status);
       });
 
     channelRef.current = channel;
 
     return () => {
-      console.log('Unsubscribing from game:', currentGame.id);
+      console.log('useOnlineGame: Unsubscribing from game:', currentGame.id);
       supabase.removeChannel(channel);
     };
   }, [currentGame?.id, userId, chess, updateBoardFromFen, playerColor]);

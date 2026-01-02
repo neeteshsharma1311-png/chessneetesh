@@ -77,43 +77,57 @@ export const useOnlineGame = (userId: string | undefined) => {
     };
 
     checkActiveGame();
-  }, [userId, chess]);
 
-  // Subscribe to game updates
-  useEffect(() => {
-    if (!currentGame?.id) return;
-
-    console.log('useOnlineGame: Subscribing to game updates for:', currentGame.id);
-
-    const channel = supabase
-      .channel(`game-${currentGame.id}`)
+    // Subscribe to ANY game updates where user is a participant
+    // This catches when someone joins our waiting game
+    const userGamesChannel = supabase
+      .channel(`user-games-${userId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'online_games',
-          filter: `id=eq.${currentGame.id}`,
         },
         (payload) => {
-          console.log('useOnlineGame: Game update received:', payload.new);
           const updatedGame = payload.new as OnlineGame;
-          setCurrentGame(updatedGame);
-          
-          // Update player color if not set
-          if (!playerColor && userId) {
+          // Check if this update is for a game we're part of
+          if (updatedGame.white_player_id === userId || updatedGame.black_player_id === userId) {
+            console.log('useOnlineGame: User game updated via channel:', updatedGame.id, updatedGame.status);
+            setCurrentGame(updatedGame);
+            
+            // Set player color if not already set
             if (updatedGame.white_player_id === userId) {
-              console.log('useOnlineGame: Setting player color to w');
               setPlayerColor('w');
             } else if (updatedGame.black_player_id === userId) {
-              console.log('useOnlineGame: Setting player color to b');
               setPlayerColor('b');
             }
+            
+            // Update board position
+            if (updatedGame.fen) {
+              chess.load(updatedGame.fen);
+              setBoardPosition(chess.board());
+            }
           }
-          
-          updateBoardFromFen(updatedGame.fen);
         }
       )
+      .subscribe((status) => {
+        console.log('useOnlineGame: User games channel status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(userGamesChannel);
+    };
+  }, [userId, chess]);
+
+  // Subscribe to game moves for the current game
+  useEffect(() => {
+    if (!currentGame?.id) return;
+
+    console.log('useOnlineGame: Subscribing to moves for game:', currentGame.id);
+
+    const channel = supabase
+      .channel(`game-moves-${currentGame.id}`)
       .on(
         'postgres_changes',
         {
@@ -141,16 +155,16 @@ export const useOnlineGame = (userId: string | undefined) => {
         }
       )
       .subscribe((status) => {
-        console.log('useOnlineGame: Subscription status:', status);
+        console.log('useOnlineGame: Moves subscription status:', status);
       });
 
     channelRef.current = channel;
 
     return () => {
-      console.log('useOnlineGame: Unsubscribing from game:', currentGame.id);
+      console.log('useOnlineGame: Unsubscribing from game moves:', currentGame.id);
       supabase.removeChannel(channel);
     };
-  }, [currentGame?.id, userId, chess, updateBoardFromFen, playerColor]);
+  }, [currentGame?.id, userId, chess]);
 
   // Join a game by ID (when accepting an invite)
   const joinGameById = useCallback(async (gameId: string) => {

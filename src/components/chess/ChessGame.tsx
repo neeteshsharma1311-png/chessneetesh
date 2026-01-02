@@ -91,21 +91,27 @@ const ChessGame: React.FC = () => {
     
     if (currentGame) {
       if (currentGame.status === 'in_progress') {
-        console.log('ChessGame: Transitioning to online game');
+        console.log('ChessGame: Transitioning to online game - status is in_progress');
         setShowOnlineGame(true);
         setShowOnlineLobby(false);
       } else if (currentGame.status === 'waiting') {
-        // Keep in lobby for waiting games
-        console.log('ChessGame: Staying in lobby for waiting game');
-        setShowOnlineLobby(true);
-        setShowOnlineGame(false);
+        // Keep in lobby for waiting games but only if we're in online mode
+        if (showOnlineLobby || showOnlineGame) {
+          console.log('ChessGame: Staying in lobby for waiting game');
+        }
       } else if (currentGame.status === 'completed' || currentGame.status === 'abandoned') {
-        // Game ended, go back to lobby
-        console.log('ChessGame: Game ended, back to lobby');
+        // Game ended, stay on game screen to show result
+        console.log('ChessGame: Game ended');
+      }
+    } else {
+      // No current game - if we were in a game, go back to lobby
+      if (showOnlineGame) {
+        console.log('ChessGame: No current game, returning to lobby');
         setShowOnlineGame(false);
+        setShowOnlineLobby(true);
       }
     }
-  }, [currentGame?.id, currentGame?.status]);
+  }, [currentGame?.id, currentGame?.status, showOnlineLobby, showOnlineGame]);
 
   // Play sounds on moves
   useEffect(() => {

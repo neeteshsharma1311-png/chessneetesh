@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ interface GameSetupProps {
   onPlayOnline?: () => void;
 }
 
-const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onPlayOnline }) => {
+const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onPlayOnline }, ref) => {
   const [mode, setMode] = useState<GameMode>('pvp');
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [player1Name, setPlayer1Name] = useState('');
@@ -262,6 +262,8 @@ const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onPlayOnline }) => {
       </form>
     </motion.div>
   );
-};
+});
+
+GameSetup.displayName = 'GameSetup';
 
 export default GameSetup;

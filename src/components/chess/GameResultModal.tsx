@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { GameResult as GameResultType, PieceColor } from '@/types/chess';
@@ -12,13 +12,13 @@ interface GameResultModalProps {
   isOnlineGame?: boolean;
 }
 
-const GameResultModal: React.FC<GameResultModalProps> = ({
+const GameResultModal = forwardRef<HTMLDivElement, GameResultModalProps>(({
   isOpen,
   result,
   onRestart,
   onNewGame,
   isOnlineGame = false,
-}) => {
+}, ref) => {
   if (!result) return null;
 
   const getIcon = () => {
@@ -145,6 +145,8 @@ const GameResultModal: React.FC<GameResultModalProps> = ({
       )}
     </AnimatePresence>
   );
-};
+});
+
+GameResultModal.displayName = 'GameResultModal';
 
 export default GameResultModal;

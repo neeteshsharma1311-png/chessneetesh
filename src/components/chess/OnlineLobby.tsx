@@ -27,6 +27,7 @@ import { useAuth, Profile } from '@/hooks/useAuth';
 import { useOnlineGame } from '@/hooks/useOnlineGame';
 import { useFriends, Friendship } from '@/hooks/useFriends';
 import { supabase } from '@/integrations/supabase/client';
+import ConnectionStatus from './ConnectionStatus';
 
 interface OnlineLobbyProps {
   onBack: () => void;
@@ -38,6 +39,7 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
     currentGame, 
     isSearching, 
     isConnecting,
+    isRealtimeConnected,
     findRandomGame, 
     createFriendGame, 
     joinFriendGame,
@@ -154,7 +156,11 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
 
         <CardContent>
           {/* Stats Bar */}
-          <div className="flex gap-4 mb-6">
+          <div className="flex flex-wrap gap-3 mb-6">
+            <ConnectionStatus 
+              isConnected={isRealtimeConnected} 
+              isSearching={isSearching || isConnecting}
+            />
             <Badge variant="secondary" className="flex items-center gap-1">
               <Users className="w-3 h-3" />
               {onlinePlayers.length} Online

@@ -35,8 +35,16 @@ export const useOnlineGame = (userId: string | undefined) => {
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const { toast } = useToast();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const opponentJoinedSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize sound for opponent joining
+  useEffect(() => {
+    // Create a simple notification sound using Web Audio API
+    opponentJoinedSoundRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleS4WHYaY0t23pGEaG2qJqNC7m2sZDCBmj7fOxJ11MBEjU4CswMSohDwbHD1vl6zAuZF/QyodNGWMqLy4pZZ3SiQeO2mRrLq0pZmBeEQcIkBxlKy4sKKYhX5IHiI9bZGruLKknot+RRohQHGUrLmwoZiEf0oeIz9xk6u4sKKZhX9KHiI+b5OsuLKknoqARxwgP2+VrLqyop2KgEccID5ulq26sqKdinBHHCE+cJWtubKinYuCSBsgPm6Wrrqyop2LgkgbID5tl626sqOdi4JIHCA+bZauubOjnouCSBwgPm2WrrqzoJ2LgEocID5tl626s6OdioFKHCI9bZauubSjnoqBSBwjPG2Xrrq0o56KgUgcIzxtl666tKSeioFIHCM8bZeuubSknop/SBwkO22Xrrq0pJ6KgEgcJDttl667taSei4BJHCM7bpeuurdQS01PU0gcJDpul667u3A8Oz1AR0gcJDlvl666uz8wLzE1PD9IHCU4b5iuu7xLMC0wND0/SRsjOHCYrrq8UDAsMDM8QUobIjhwmK66vFAwLDA0PEFLGiM3cZitubtSMCwwMzxBSxwiN3CYrLm8UjAsMDQ7QUwaIThwmKy5vFIwLDEzPD9MGyA4cZisub1RMC0wNDtATBogOHGYrLm8VDAtMDU6P00cHzhwma26ulYwLTA1Oj9OGx84cJqturpXMS0wNTk+ThsdN3GZrbu5WjAuLzY5PU8cHTdymbO6uF0wLi82OT1PHBw3cpm0ubleMS0wNjk9UBwcNnKatLq4XzEtMDY5PVAYHDZ0mbS7t2ExLTA2Oj1QFxs2dJq0u7ZjMS0wNzo9Txgb');
+  }, []);
 
   const updateBoardFromFen = useCallback((fen: string) => {
     chess.load(fen);
@@ -82,9 +90,15 @@ export const useOnlineGame = (userId: string | undefined) => {
   // Subscribe to updates for the current game specifically
   // This ensures both players get notified when the game state changes
   useEffect(() => {
-    if (!currentGame?.id || !userId) return;
+    if (!currentGame?.id || !userId) {
+      setIsRealtimeConnected(false);
+      return;
+    }
 
     console.log('useOnlineGame: Setting up game subscription for:', currentGame.id, 'status:', currentGame.status);
+
+    // Track if opponent just joined (for sound notification)
+    const previousBlackPlayer = currentGame.black_player_id;
 
     // Create a unique channel name to avoid conflicts
     const channelName = `game-updates-${currentGame.id}-${Date.now()}`;
@@ -108,6 +122,19 @@ export const useOnlineGame = (userId: string | undefined) => {
             event: payload.eventType
           });
           
+          // Play sound if opponent just joined
+          if (!previousBlackPlayer && updatedGame.black_player_id && updatedGame.status === 'in_progress') {
+            try {
+              opponentJoinedSoundRef.current?.play();
+            } catch (e) {
+              console.log('Could not play sound:', e);
+            }
+            toast({
+              title: "Opponent joined!",
+              description: "The game is starting now!",
+            });
+          }
+          
           // Force state update with new object reference
           setCurrentGame({...updatedGame});
           
@@ -127,6 +154,7 @@ export const useOnlineGame = (userId: string | undefined) => {
       )
       .subscribe((status) => {
         console.log('useOnlineGame: Game channel status:', status, 'for game:', currentGame.id);
+        setIsRealtimeConnected(status === 'SUBSCRIBED');
       });
 
     // Aggressive polling for waiting games to ensure state sync
@@ -692,6 +720,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     moveHistory,
     isConnecting,
     isSearching,
+    isRealtimeConnected,
     isMyTurn: currentGame?.status === 'in_progress' && chess.turn() === playerColor,
     isCheck: chess.isCheck(),
     isCheckmate: chess.isCheckmate(),

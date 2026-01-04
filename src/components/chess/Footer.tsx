@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { Github, Linkedin } from 'lucide-react';
 
-const Footer: React.FC = () => {
+const Footer = forwardRef<HTMLElement>((props, ref) => {
   return (
     <motion.footer
       className="w-full py-6 px-4 border-t border-border mt-auto"
@@ -43,6 +43,8 @@ const Footer: React.FC = () => {
       </div>
     </motion.footer>
   );
-};
+});
+
+Footer.displayName = 'Footer';
 
 export default Footer;

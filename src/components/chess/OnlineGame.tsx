@@ -5,6 +5,7 @@ import PlayerInfo from './PlayerInfo';
 import MoveHistory from './MoveHistory';
 import GameResultModal from './GameResultModal';
 import GameChat from './GameChat';
+import ConnectionStatus from './ConnectionStatus';
 import { Button } from '@/components/ui/button';
 import { useOnlineGame } from '@/hooks/useOnlineGame';
 import { useAuth, Profile } from '@/hooks/useAuth';
@@ -32,6 +33,7 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
     isCheck,
     isCheckmate,
     isGameOver,
+    isRealtimeConnected,
     selectSquare,
     resignGame,
     leaveGame,
@@ -186,9 +188,10 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
         </div>
 
         {/* Center - Chess board */}
-        <div className="order-1 lg:order-2 flex justify-center">
+        <div className="order-1 lg:order-2 flex flex-col items-center">
           <div className="w-full max-w-[min(90vw,500px)] lg:max-w-[500px]">
-            <div className="mb-2 text-center">
+            <div className="mb-2 flex items-center justify-center gap-3">
+              <ConnectionStatus isConnected={isRealtimeConnected} />
               {isMyTurn ? (
                 <span className="text-green-500 font-medium">Your turn</span>
               ) : (

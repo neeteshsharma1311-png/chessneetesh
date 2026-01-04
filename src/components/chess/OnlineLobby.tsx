@@ -434,6 +434,8 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                           onClick={async () => {
                             const gameId = await respondToGameInvite(invite.id, true);
                             if (gameId) {
+                              // Wait for database to sync before joining
+                              await new Promise(resolve => setTimeout(resolve, 300));
                               await joinGameById(gameId);
                             }
                           }}

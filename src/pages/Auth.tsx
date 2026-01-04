@@ -119,7 +119,10 @@ const Auth: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <div className="animated-bg" />
+      <div className="animated-bg">
+        <div className="orb-1" />
+        <div className="orb-2" />
+      </div>
       
       {/* Header */}
       <header className="w-full py-4 px-4 md:px-8">

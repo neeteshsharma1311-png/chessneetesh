@@ -82,36 +82,36 @@ const ChessGame: React.FC = () => {
 
   // Show online game when currentGame is in progress
   useEffect(() => {
-    console.log('ChessGame: currentGame changed', { 
-      id: currentGame?.id, 
-      status: currentGame?.status,
-      showOnlineLobby,
-      showOnlineGame
-    });
-    
-    if (currentGame) {
-      if (currentGame.status === 'in_progress') {
-        console.log('ChessGame: Transitioning to online game - status is in_progress');
-        setShowOnlineGame(true);
-        setShowOnlineLobby(false);
-      } else if (currentGame.status === 'waiting') {
-        // Keep in lobby for waiting games but only if we're in online mode
-        if (showOnlineLobby || showOnlineGame) {
-          console.log('ChessGame: Staying in lobby for waiting game');
-        }
-      } else if (currentGame.status === 'completed' || currentGame.status === 'abandoned') {
-        // Game ended, stay on game screen to show result
-        console.log('ChessGame: Game ended');
-      }
-    } else {
+    if (!currentGame) {
       // No current game - if we were in a game, go back to lobby
       if (showOnlineGame) {
         console.log('ChessGame: No current game, returning to lobby');
         setShowOnlineGame(false);
         setShowOnlineLobby(true);
       }
+      return;
     }
-  }, [currentGame?.id, currentGame?.status, showOnlineLobby, showOnlineGame]);
+
+    console.log('ChessGame: currentGame changed', { 
+      id: currentGame.id, 
+      status: currentGame.status,
+      black_player: currentGame.black_player_id,
+      showOnlineLobby,
+      showOnlineGame
+    });
+    
+    if (currentGame.status === 'in_progress') {
+      console.log('ChessGame: Game is in_progress - transitioning to game view');
+      setShowOnlineGame(true);
+      setShowOnlineLobby(false);
+    } else if (currentGame.status === 'waiting') {
+      // If not already showing lobby or game, show lobby
+      if (!showOnlineLobby && !showOnlineGame) {
+        console.log('ChessGame: Waiting game detected, showing lobby');
+        setShowOnlineLobby(true);
+      }
+    }
+  }, [currentGame?.id, currentGame?.status, currentGame?.black_player_id]);
 
   // Play sounds on moves
   useEffect(() => {
@@ -202,7 +202,10 @@ const ChessGame: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Animated background */}
-      <div className="animated-bg" />
+      <div className="animated-bg">
+        <div className="orb-1" />
+        <div className="orb-2" />
+      </div>
 
       {/* Header */}
       <header className="w-full py-4 px-4 md:px-8">

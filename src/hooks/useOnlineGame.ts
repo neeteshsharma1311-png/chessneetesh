@@ -84,21 +84,29 @@ export const useOnlineGame = (userId: string | undefined) => {
   useEffect(() => {
     if (!currentGame?.id || !userId) return;
 
-    console.log('useOnlineGame: Subscribing to game updates for:', currentGame.id);
+    console.log('useOnlineGame: Setting up game subscription for:', currentGame.id, 'status:', currentGame.status);
 
+    // Create a unique channel name to avoid conflicts
+    const channelName = `game-updates-${currentGame.id}-${Date.now()}`;
+    
     const gameChannel = supabase
-      .channel(`game-updates-${currentGame.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'online_games',
           filter: `id=eq.${currentGame.id}`,
         },
         (payload) => {
           const updatedGame = payload.new as OnlineGame;
-          console.log('useOnlineGame: Current game updated via realtime:', updatedGame.id, updatedGame.status, 'black_player:', updatedGame.black_player_id);
+          console.log('useOnlineGame: Realtime update received:', {
+            id: updatedGame.id,
+            status: updatedGame.status,
+            black_player: updatedGame.black_player_id,
+            event: payload.eventType
+          });
           
           // Force state update with new object reference
           setCurrentGame({...updatedGame});
@@ -121,19 +129,27 @@ export const useOnlineGame = (userId: string | undefined) => {
         console.log('useOnlineGame: Game channel status:', status, 'for game:', currentGame.id);
       });
 
-    // Polling fallback for waiting games (in case realtime fails)
+    // Aggressive polling for waiting games to ensure state sync
     let pollInterval: NodeJS.Timeout | null = null;
-    if (currentGame.status === 'waiting') {
-      console.log('useOnlineGame: Starting polling for waiting game:', currentGame.id);
-      pollInterval = setInterval(async () => {
-        const { data: game, error } = await supabase
-          .from('online_games')
-          .select('*')
-          .eq('id', currentGame.id)
-          .single();
+    
+    const pollGameState = async () => {
+      const { data: game, error } = await supabase
+        .from('online_games')
+        .select('*')
+        .eq('id', currentGame.id)
+        .single();
+      
+      if (!error && game) {
+        const currentStatus = currentGame.status;
+        const newStatus = game.status;
         
-        if (!error && game && game.status !== currentGame.status) {
-          console.log('useOnlineGame: Polling detected game update:', game.id, game.status);
+        if (newStatus !== currentStatus || game.black_player_id !== currentGame.black_player_id) {
+          console.log('useOnlineGame: Polling detected state change:', {
+            from: currentStatus,
+            to: newStatus,
+            black_player: game.black_player_id
+          });
+          
           setCurrentGame({...game} as OnlineGame);
           
           if (game.white_player_id === userId) {
@@ -147,17 +163,24 @@ export const useOnlineGame = (userId: string | undefined) => {
             setBoardPosition(chess.board());
           }
         }
-      }, 2000); // Poll every 2 seconds
+      }
+    };
+    
+    // Start polling immediately for waiting games
+    if (currentGame.status === 'waiting') {
+      console.log('useOnlineGame: Starting aggressive polling for waiting game');
+      pollGameState(); // Poll immediately
+      pollInterval = setInterval(pollGameState, 1500); // Poll every 1.5 seconds
     }
 
     return () => {
-      console.log('useOnlineGame: Unsubscribing from game updates:', currentGame.id);
+      console.log('useOnlineGame: Cleaning up game subscription');
       supabase.removeChannel(gameChannel);
       if (pollInterval) {
         clearInterval(pollInterval);
       }
     };
-  }, [currentGame?.id, currentGame?.status, userId, chess]);
+  }, [currentGame?.id, currentGame?.status, currentGame?.black_player_id, userId, chess]);
 
   // Subscribe to game moves for the current game
   useEffect(() => {

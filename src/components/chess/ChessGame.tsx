@@ -372,6 +372,9 @@ const ChessGame: React.FC = () => {
         result={gameResult}
         onRestart={handleRestart}
         onNewGame={handleNewGame}
+        moves={gameState.moveHistory}
+        whitePlayerName={gameState.players.white.name}
+        blackPlayerName={gameState.players.black.name}
       />
 
       {/* Footer */}

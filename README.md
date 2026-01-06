@@ -1,73 +1,71 @@
-# Welcome to your Lovable project
+# ♟ Online Chess Game
 
-## Project info
+A modern, interactive web-based chess game built for players of all levels.  
+Designed with a clean UI, smooth gameplay, and responsive experience across all devices.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## 🚀 Features
 
-There are several ways of editing your application.
+- 🎮 Fully functional chess gameplay  
+- ♜ Real-time move validation  
+- ♞ Legal move highlighting  
+- ♚ Check, checkmate & stalemate detection  
+- 🔄 Game reset & undo support  
+- 💻 Responsive design (mobile + desktop)  
+- 🎨 Clean and minimal UI  
+- ⚡ Smooth animations & transitions
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 🛠 Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+**Frontend:**  
+HTML, CSS, JavaScript, React
 
-**Use your preferred IDE**
+**Backend:**  
+Node.js / Flask *(if applicable)*
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+**Hosting:**  
+Vercel
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🌐 Live Demo
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+🔗 https://chess-game-iota-eight.vercel.app/
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🧠 Learning Outcomes
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+- Game logic implementation  
+- State management in React  
+- UI/UX optimization  
+- Event-driven programming  
+- Algorithmic problem solving
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🎯 Future Enhancements
 
-**Use GitHub Codespaces**
+- ♖ AI opponent with difficulty levels  
+- 🧑‍🤝‍🧑 Multiplayer mode  
+- ⏱ Timer & ranked matches  
+- 🏆 Leaderboard & match history  
+- 🔐 User authentication & profiles
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## 👨‍💻 Developer
 
-This project is built with:
+**Neetesh Kumar**  
+Full-Stack Developer | AI/ML Enthusiast  
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+📧 neeteshk1104@gmail.com  
+🐙 GitHub: https://github.com/neetesh1541  
+🌐 Portfolio: https://neetesh.tech
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+> *Play smart. Think ahead. Win bold.*

@@ -81,38 +81,35 @@ export const useOnlineGame = (userId: string | undefined) => {
     }
   }, [currentGame, playerColor, toast]);
 
-  // Timer countdown effect
+  // Timer countdown effect - runs only when game is in progress
   useEffect(() => {
+    // Clear any existing interval first
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
     if (!currentGame || currentGame.status !== 'in_progress' || !currentGame.time_control) {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
       return;
     }
 
-    // Initialize times from game state
-    setWhiteTimeRemaining(currentGame.white_time_remaining || currentGame.time_control);
-    setBlackTimeRemaining(currentGame.black_time_remaining || currentGame.time_control);
-
+    // Start the countdown interval
     timerIntervalRef.current = setInterval(() => {
-      const currentTurn = chess.turn();
+      const currentTurn = currentGame.current_turn;
       
       if (currentTurn === 'w') {
         setWhiteTimeRemaining(prev => {
-          const newTime = prev - 1;
+          const newTime = Math.max(0, prev - 1);
           if (newTime <= 0) {
             endGameByTimeout('w');
-            return 0;
           }
           return newTime;
         });
       } else {
         setBlackTimeRemaining(prev => {
-          const newTime = prev - 1;
+          const newTime = Math.max(0, prev - 1);
           if (newTime <= 0) {
             endGameByTimeout('b');
-            return 0;
           }
           return newTime;
         });
@@ -125,7 +122,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         timerIntervalRef.current = null;
       }
     };
-  }, [currentGame?.id, currentGame?.status, currentGame?.time_control, chess, endGameByTimeout]);
+  }, [currentGame?.id, currentGame?.status, currentGame?.time_control, currentGame?.current_turn, endGameByTimeout]);
 
   // Check for any active games where user is a player
   useEffect(() => {
@@ -157,6 +154,18 @@ export const useOnlineGame = (userId: string | undefined) => {
         console.log('useOnlineGame: Set player color to:', color, 'for game:', game.id);
         chess.load(game.fen);
         setBoardPosition(chess.board());
+        
+        // Initialize timers from database
+        if (game.white_time_remaining != null) {
+          setWhiteTimeRemaining(game.white_time_remaining);
+        } else if (game.time_control) {
+          setWhiteTimeRemaining(game.time_control);
+        }
+        if (game.black_time_remaining != null) {
+          setBlackTimeRemaining(game.black_time_remaining);
+        } else if (game.time_control) {
+          setBlackTimeRemaining(game.time_control);
+        }
       }
     };
 
@@ -251,14 +260,17 @@ export const useOnlineGame = (userId: string | undefined) => {
       
       if (!error && game) {
         // Check for any changes
-        if (
+        const hasChanges = 
           game.status !== currentGame.status || 
           game.black_player_id !== currentGame.black_player_id ||
-          game.fen !== currentGame.fen
-        ) {
+          game.fen !== currentGame.fen ||
+          game.current_turn !== currentGame.current_turn;
+          
+        if (hasChanges) {
           console.log('useOnlineGame: Polling detected state change:', {
             status: game.status,
-            black_player: game.black_player_id
+            black_player: game.black_player_id,
+            current_turn: game.current_turn
           });
           
           // Play sound if opponent joined
@@ -285,6 +297,14 @@ export const useOnlineGame = (userId: string | undefined) => {
           if (game.fen) {
             chess.load(game.fen);
             setBoardPosition(chess.board());
+          }
+          
+          // Sync timers from opponent's move
+          if (game.white_time_remaining != null) {
+            setWhiteTimeRemaining(game.white_time_remaining);
+          }
+          if (game.black_time_remaining != null) {
+            setBlackTimeRemaining(game.black_time_remaining);
           }
         }
       }

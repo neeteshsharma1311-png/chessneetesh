@@ -56,7 +56,7 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
   const [whiteProfile, setWhiteProfile] = useState<Profile | null>(null);
   const [blackProfile, setBlackProfile] = useState<Profile | null>(null);
 
-  // Fetch both player profiles
+  // Fetch both player profiles - refetch when players change
   useEffect(() => {
     const fetchProfiles = async () => {
       if (!currentGame) return;
@@ -68,7 +68,9 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
           .select('*')
           .eq('user_id', currentGame.white_player_id)
           .maybeSingle();
-        setWhiteProfile(whiteData as Profile);
+        if (whiteData) {
+          setWhiteProfile(whiteData as Profile);
+        }
       }
 
       // Fetch black player profile
@@ -78,13 +80,30 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
           .select('*')
           .eq('user_id', currentGame.black_player_id)
           .maybeSingle();
-        setBlackProfile(blackData as Profile);
-        setOpponentProfile(blackData as Profile);
+        if (blackData) {
+          setBlackProfile(blackData as Profile);
+          // Set opponent for current user
+          if (currentGame.white_player_id === user?.id) {
+            setOpponentProfile(blackData as Profile);
+          }
+        }
+      }
+      
+      // If current user is black, set white as opponent
+      if (currentGame.black_player_id === user?.id && currentGame.white_player_id) {
+        const { data: whiteData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', currentGame.white_player_id)
+          .maybeSingle();
+        if (whiteData) {
+          setOpponentProfile(whiteData as Profile);
+        }
       }
     };
 
     fetchProfiles();
-  }, [currentGame?.white_player_id, currentGame?.black_player_id]);
+  }, [currentGame?.id, currentGame?.white_player_id, currentGame?.black_player_id, user?.id]);
 
   // Play sounds on moves
   useEffect(() => {
@@ -269,6 +288,9 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
         onRestart={handleRematch}
         onNewGame={handleNewGame}
         isOnlineGame={true}
+        moves={moveHistory}
+        whitePlayerName={whiteName}
+        blackPlayerName={blackName}
       />
 
       {/* In-game chat */}

@@ -21,13 +21,16 @@ import {
   Trophy,
   UserCheck,
   UserX,
-  Send
+  Send,
+  Eye
 } from 'lucide-react';
 import { useAuth, Profile } from '@/hooks/useAuth';
 import { useOnlineGame } from '@/hooks/useOnlineGame';
 import { useFriends, Friendship } from '@/hooks/useFriends';
 import { supabase } from '@/integrations/supabase/client';
 import ConnectionStatus from './ConnectionStatus';
+import Leaderboard from './Leaderboard';
+import SpectatorMode from './SpectatorMode';
 
 interface OnlineLobbyProps {
   onBack: () => void;
@@ -172,10 +175,18 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
           </div>
 
           <Tabs defaultValue="play" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-5 mb-6">
               <TabsTrigger value="play" className="flex items-center gap-2">
                 <Swords className="w-4 h-4" />
                 Play
+              </TabsTrigger>
+              <TabsTrigger value="spectate" className="flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Watch
+              </TabsTrigger>
+              <TabsTrigger value="leaderboard" className="flex items-center gap-2">
+                <Trophy className="w-4 h-4" />
+                Ranks
               </TabsTrigger>
               <TabsTrigger value="friends" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
@@ -295,6 +306,14 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                   </Card>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="spectate">
+              <SpectatorMode onBack={onBack} />
+            </TabsContent>
+
+            <TabsContent value="leaderboard">
+              <Leaderboard currentUserId={user?.id} />
             </TabsContent>
 
             <TabsContent value="friends" className="space-y-6">

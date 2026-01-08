@@ -25,6 +25,16 @@ export interface OnlineGame {
   draw_offered_by: string | null;
 }
 
+export interface RematchRequest {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  original_game_id: string;
+  new_game_id: string | null;
+  status: string;
+  created_at: string;
+}
+
 export const useOnlineGame = (userId: string | undefined) => {
   const [chess] = useState(() => new Chess());
   const [currentGame, setCurrentGame] = useState<OnlineGame | null>(null);
@@ -39,14 +49,22 @@ export const useOnlineGame = (userId: string | undefined) => {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [whiteTimeRemaining, setWhiteTimeRemaining] = useState<number>(600);
   const [blackTimeRemaining, setBlackTimeRemaining] = useState<number>(600);
+  const [rematchRequest, setRematchRequest] = useState<RematchRequest | null>(null);
   const { toast } = useToast();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const opponentJoinedSoundRef = useRef<HTMLAudioElement | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentTurnRef = useRef<string>('w');
+
+  // Keep current turn in ref for timer interval
+  useEffect(() => {
+    if (currentGame?.current_turn) {
+      currentTurnRef.current = currentGame.current_turn;
+    }
+  }, [currentGame?.current_turn]);
 
   // Initialize sound for opponent joining
   useEffect(() => {
-    // Create a simple notification sound using Web Audio API
     opponentJoinedSoundRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleS4WHYaY0t23pGEaG2qJqNC7m2sZDCBmj7fOxJ11MBEjU4CswMSohDwbHD1vl6zAuZF/QyodNGWMqLy4pZZ3SiQeO2mRrLq0pZmBeEQcIkBxlKy4sKKYhX5IHiI9bZGruLKknot+RRohQHGUrLmwoZiEf0oeIz9xk6u4sKKZhX9KHiI+b5OsuLKknoqARxwgP2+VrLqyop2KgEccID5ulq26sqKdinBHHCE+cJWtubKinYuCSBsgPm6Wrrqyop2LgkgbID5tl626sqOdi4JIHCA+bZauubOjnouCSBwgPm2WrrqzoJ2LgEocID5tl626s6OdioFKHCI9bZauubSjnoqBSBwjPG2Xrrq0o56KgUgcIzxtl666tKSeioFIHCM8bZeuubSknop/SBwkO22Xrrq0pJ6KgEgcJDttl667taSei4BJHCM7bpeuurdQS01PU0gcJDpul667u3A8Oz1AR0gcJDlvl666uz8wLzE1PD9IHCU4b5iuu7xLMC0wND0/SRsjOHCYrrq8UDAsMDM8QUobIjhwmK66vFAwLDA0PEFLGiM3cZitubtSMCwwMzxBSxwiN3CYrLm8UjAsMDQ7QUwaIThwmKy5vFIwLDEzPD9MGyA4cZisub1RMC0wNDtATBogOHGYrLm8VDAtMDU6P00cHzhwma26ulYwLTA1Oj9OGx84cJqturpXMS0wNTk+ThsdN3GZrbu5WjAuLzY5PU8cHTdymbO6uF0wLi82OT1PHBw3cpm0ubleMS0wNjk9UBwcNnKatLq4XzEtMDY5PVAYHDZ0mbS7t2ExLTA2Oj1QFxs2dJq0u7ZjMS0wNzo9Txgb');
   }, []);
 
@@ -81,9 +99,8 @@ export const useOnlineGame = (userId: string | undefined) => {
     }
   }, [currentGame, playerColor, toast]);
 
-  // Timer countdown effect - runs only when game is in progress
+  // Timer countdown effect - uses ref to avoid stale closure
   useEffect(() => {
-    // Clear any existing interval first
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -93,11 +110,10 @@ export const useOnlineGame = (userId: string | undefined) => {
       return;
     }
 
-    // Start the countdown interval
     timerIntervalRef.current = setInterval(() => {
-      const currentTurn = currentGame.current_turn;
+      const turn = currentTurnRef.current;
       
-      if (currentTurn === 'w') {
+      if (turn === 'w') {
         setWhiteTimeRemaining(prev => {
           const newTime = Math.max(0, prev - 1);
           if (newTime <= 0) {
@@ -122,7 +138,32 @@ export const useOnlineGame = (userId: string | undefined) => {
         timerIntervalRef.current = null;
       }
     };
-  }, [currentGame?.id, currentGame?.status, currentGame?.time_control, currentGame?.current_turn, endGameByTimeout]);
+  }, [currentGame?.id, currentGame?.status, currentGame?.time_control, endGameByTimeout]);
+
+  // Load existing move history when joining a game
+  const loadMoveHistory = useCallback(async (gameId: string) => {
+    const { data: moves, error } = await supabase
+      .from('game_moves')
+      .select('*')
+      .eq('game_id', gameId)
+      .order('move_number', { ascending: true });
+
+    if (!error && moves) {
+      const history: Move[] = moves.map(m => ({
+        from: m.from_square as Square,
+        to: m.to_square as Square,
+        piece: 'p',
+        san: m.san,
+        flags: '',
+      }));
+      setMoveHistory(history);
+      
+      if (moves.length > 0) {
+        const lastMoveData = moves[moves.length - 1];
+        setLastMove({ from: lastMoveData.from_square as Square, to: lastMoveData.to_square as Square });
+      }
+    }
+  }, []);
 
   // Check for any active games where user is a player
   useEffect(() => {
@@ -166,14 +207,18 @@ export const useOnlineGame = (userId: string | undefined) => {
         } else if (game.time_control) {
           setBlackTimeRemaining(game.time_control);
         }
+
+        // Load move history
+        if (game.status === 'in_progress') {
+          loadMoveHistory(game.id);
+        }
       }
     };
 
     checkActiveGame();
-  }, [userId, chess]);
+  }, [userId, chess, loadMoveHistory]);
 
-  // Subscribe to updates for the current game specifically
-  // This ensures both players get notified when the game state changes
+  // Subscribe to updates for the current game
   useEffect(() => {
     if (!currentGame?.id || !userId) {
       setIsRealtimeConnected(false);
@@ -182,7 +227,6 @@ export const useOnlineGame = (userId: string | undefined) => {
 
     console.log('useOnlineGame: Setting up game subscription for:', currentGame.id, 'status:', currentGame.status);
 
-    // Create a unique channel name
     const channelName = `game-updates-${currentGame.id}-${Date.now()}`;
     
     const gameChannel = supabase
@@ -205,7 +249,7 @@ export const useOnlineGame = (userId: string | undefined) => {
             event: payload.eventType
           });
           
-          // Check if opponent joined (game went from waiting to in_progress)
+          // Check if opponent joined
           if (currentGame.status === 'waiting' && updatedGame.status === 'in_progress' && updatedGame.black_player_id) {
             try {
               opponentJoinedSoundRef.current?.play();
@@ -218,10 +262,13 @@ export const useOnlineGame = (userId: string | undefined) => {
             });
           }
           
-          // Always update game state
+          // Update current turn ref immediately
+          currentTurnRef.current = updatedGame.current_turn;
+          
+          // Update game state
           setCurrentGame({...updatedGame});
           
-          // Set player color based on updated game
+          // Set player color
           if (updatedGame.white_player_id === userId) {
             setPlayerColor('w');
           } else if (updatedGame.black_player_id === userId) {
@@ -234,7 +281,7 @@ export const useOnlineGame = (userId: string | undefined) => {
             setBoardPosition(chess.board());
           }
           
-          // Update timers
+          // Sync timers
           if (updatedGame.white_time_remaining != null) {
             setWhiteTimeRemaining(updatedGame.white_time_remaining);
           }
@@ -248,7 +295,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         setIsRealtimeConnected(status === 'SUBSCRIBED');
       });
 
-    // Polling for waiting games
+    // Aggressive polling for waiting games and turn changes
     let pollInterval: NodeJS.Timeout | null = null;
     
     const pollGameState = async () => {
@@ -259,7 +306,6 @@ export const useOnlineGame = (userId: string | undefined) => {
         .single();
       
       if (!error && game) {
-        // Check for any changes
         const hasChanges = 
           game.status !== currentGame.status || 
           game.black_player_id !== currentGame.black_player_id ||
@@ -273,7 +319,6 @@ export const useOnlineGame = (userId: string | undefined) => {
             current_turn: game.current_turn
           });
           
-          // Play sound if opponent joined
           if (currentGame.status === 'waiting' && game.status === 'in_progress' && game.black_player_id) {
             try {
               opponentJoinedSoundRef.current?.play();
@@ -285,6 +330,9 @@ export const useOnlineGame = (userId: string | undefined) => {
               description: "The game is starting now!",
             });
           }
+          
+          // Update current turn ref
+          currentTurnRef.current = game.current_turn;
           
           setCurrentGame({...game} as OnlineGame);
           
@@ -299,7 +347,6 @@ export const useOnlineGame = (userId: string | undefined) => {
             setBoardPosition(chess.board());
           }
           
-          // Sync timers from opponent's move
           if (game.white_time_remaining != null) {
             setWhiteTimeRemaining(game.white_time_remaining);
           }
@@ -310,10 +357,9 @@ export const useOnlineGame = (userId: string | undefined) => {
       }
     };
     
-    // Poll for all games (not just waiting) to catch state changes
     console.log('useOnlineGame: Starting polling for game:', currentGame.id);
     pollGameState();
-    pollInterval = setInterval(pollGameState, 2000);
+    pollInterval = setInterval(pollGameState, 1500);
 
     return () => {
       console.log('useOnlineGame: Cleaning up game subscription');
@@ -324,7 +370,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     };
   }, [currentGame?.id, userId, chess, toast]);
 
-  // Subscribe to game moves for the current game
+  // Subscribe to game moves
   useEffect(() => {
     if (!currentGame?.id) return;
 
@@ -344,7 +390,6 @@ export const useOnlineGame = (userId: string | undefined) => {
           console.log('useOnlineGame: Move received:', payload.new);
           const move = payload.new as any;
           if (move.player_id !== userId) {
-            // Opponent made a move
             chess.load(move.fen_after);
             setBoardPosition(chess.board());
             setLastMove({ from: move.from_square, to: move.to_square });
@@ -370,14 +415,13 @@ export const useOnlineGame = (userId: string | undefined) => {
     };
   }, [currentGame?.id, userId, chess]);
 
-  // Join a game by ID (when accepting an invite)
+  // Join a game by ID
   const joinGameById = useCallback(async (gameId: string) => {
     if (!userId) return null;
 
     try {
       console.log('useOnlineGame: Joining game by ID:', gameId);
       
-      // Small delay to ensure the database has been updated
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const { data: game, error } = await supabase
@@ -395,19 +439,23 @@ export const useOnlineGame = (userId: string | undefined) => {
       chess.load(game.fen);
       setBoardPosition(chess.board());
 
+      // Load move history
+      if (game.status === 'in_progress') {
+        loadMoveHistory(game.id);
+      }
+
       return game;
     } catch (error) {
       console.error('Error joining game by ID:', error);
       return null;
     }
-  }, [userId, chess]);
+  }, [userId, chess, loadMoveHistory]);
 
   const findRandomGame = useCallback(async () => {
     if (!userId) return null;
     setIsSearching(true);
 
     try {
-      // First, check if there's a waiting game we can join
       const { data: waitingGames, error: fetchError } = await supabase
         .from('online_games')
         .select('*')
@@ -420,7 +468,6 @@ export const useOnlineGame = (userId: string | undefined) => {
       if (fetchError) throw fetchError;
 
       if (waitingGames && waitingGames.length > 0) {
-        // Join existing game as black
         const game = waitingGames[0];
         const { data: updatedGame, error: updateError } = await supabase
           .from('online_games')
@@ -439,6 +486,12 @@ export const useOnlineGame = (userId: string | undefined) => {
         chess.load(updatedGame.fen);
         setBoardPosition(chess.board());
         
+        // Initialize timers
+        if (updatedGame.time_control) {
+          setWhiteTimeRemaining(updatedGame.white_time_remaining ?? updatedGame.time_control);
+          setBlackTimeRemaining(updatedGame.black_time_remaining ?? updatedGame.time_control);
+        }
+        
         toast({
           title: "Game found!",
           description: "You're playing as Black. Good luck!",
@@ -448,7 +501,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         return updatedGame;
       }
 
-      // No waiting games, create a new one
+      // Create new game
       const { data: newGame, error: createError } = await supabase
         .from('online_games')
         .insert({
@@ -467,6 +520,8 @@ export const useOnlineGame = (userId: string | undefined) => {
 
       setCurrentGame(newGame);
       setPlayerColor('w');
+      setWhiteTimeRemaining(600);
+      setBlackTimeRemaining(600);
       
       toast({
         title: "Searching for opponent...",
@@ -514,6 +569,8 @@ export const useOnlineGame = (userId: string | undefined) => {
       console.log('useOnlineGame: Created friend game:', newGame.id);
       setCurrentGame(newGame);
       setPlayerColor('w');
+      setWhiteTimeRemaining(600);
+      setBlackTimeRemaining(600);
 
       toast({
         title: "Game created!",
@@ -593,6 +650,12 @@ export const useOnlineGame = (userId: string | undefined) => {
       setPlayerColor('b');
       chess.load(updatedGame.fen);
       setBoardPosition(chess.board());
+      
+      // Initialize timers
+      if (updatedGame.time_control) {
+        setWhiteTimeRemaining(updatedGame.white_time_remaining ?? updatedGame.time_control);
+        setBlackTimeRemaining(updatedGame.black_time_remaining ?? updatedGame.time_control);
+      }
 
       toast({
         title: "Joined game!",
@@ -631,6 +694,11 @@ export const useOnlineGame = (userId: string | undefined) => {
       if (!move) return false;
 
       const newFen = chess.fen();
+      const newTurn = chess.turn();
+      
+      // Update ref immediately
+      currentTurnRef.current = newTurn;
+      
       setBoardPosition(chess.board());
       setLastMove({ from, to });
       setSelectedSquare(null);
@@ -641,7 +709,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         .from('online_games')
         .update({
           fen: newFen,
-          current_turn: chess.turn(),
+          current_turn: newTurn,
           white_time_remaining: whiteTimeRemaining,
           black_time_remaining: blackTimeRemaining,
           status: chess.isGameOver() ? 'completed' : 'in_progress',
@@ -682,12 +750,11 @@ export const useOnlineGame = (userId: string | undefined) => {
       return true;
     } catch (error) {
       console.error('Error making move:', error);
-      // Revert the move
       chess.undo();
       setBoardPosition(chess.board());
       return false;
     }
-  }, [currentGame, userId, playerColor, chess, moveHistory.length]);
+  }, [currentGame, userId, playerColor, chess, moveHistory.length, whiteTimeRemaining, blackTimeRemaining]);
 
   const getValidMoves = useCallback((square: Square): Square[] => {
     const moves = chess.moves({ square, verbose: true });
@@ -743,7 +810,6 @@ export const useOnlineGame = (userId: string | undefined) => {
     if (!currentGame) return;
 
     if (currentGame.status === 'waiting') {
-      // Cancel the game
       await supabase
         .from('online_games')
         .update({ status: 'abandoned' })
@@ -758,45 +824,101 @@ export const useOnlineGame = (userId: string | undefined) => {
     setLastMove(null);
     setSelectedSquare(null);
     setValidMoves([]);
+    setRematchRequest(null);
   }, [currentGame, chess]);
 
-  // Request rematch with the same opponent
+  // Request rematch - notifies opponent
   const requestRematch = useCallback(async () => {
     if (!currentGame || !userId) return null;
 
+    const opponentId = playerColor === 'w' 
+      ? currentGame.black_player_id 
+      : currentGame.white_player_id;
+
+    if (!opponentId) {
+      toast({
+        title: "Cannot rematch",
+        description: "Opponent not found.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     try {
-      const opponentId = playerColor === 'w' 
-        ? currentGame.black_player_id 
-        : currentGame.white_player_id;
-
-      if (!opponentId) {
-        toast({
-          title: "Cannot rematch",
-          description: "Opponent not found.",
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      // Create new game with colors swapped
-      const { data: newGame, error } = await supabase
-        .from('online_games')
+      // Create rematch request via game_invites table
+      const { data: invite, error: inviteError } = await supabase
+        .from('game_invites')
         .insert({
-          white_player_id: currentGame.black_player_id, // Swap colors
-          black_player_id: currentGame.white_player_id,
-          status: 'in_progress',
-          game_type: currentGame.game_type,
-          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-          time_control: currentGame.time_control,
-          white_time_remaining: currentGame.time_control,
-          black_time_remaining: currentGame.time_control,
+          from_user_id: userId,
+          to_user_id: opponentId,
+          game_id: currentGame.id,
+          time_control: currentGame.time_control || 600,
+          status: 'pending',
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (inviteError) throw inviteError;
 
-      // Reset local state
+      toast({
+        title: "Rematch requested!",
+        description: "Waiting for opponent to accept...",
+      });
+
+      return invite;
+    } catch (error) {
+      console.error('Error requesting rematch:', error);
+      toast({
+        title: "Error",
+        description: "Failed to request rematch.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [currentGame, userId, playerColor, toast]);
+
+  // Accept rematch and start new game
+  const acceptRematch = useCallback(async (inviteId: string) => {
+    if (!userId || !currentGame) return null;
+
+    try {
+      // Get the invite details
+      const { data: invite, error: fetchError } = await supabase
+        .from('game_invites')
+        .select('*')
+        .eq('id', inviteId)
+        .single();
+
+      if (fetchError || !invite) throw fetchError || new Error('Invite not found');
+
+      // Create new game with colors swapped
+      const { data: newGame, error: gameError } = await supabase
+        .from('online_games')
+        .insert({
+          white_player_id: invite.to_user_id,  // Swap colors
+          black_player_id: invite.from_user_id,
+          status: 'in_progress',
+          game_type: 'rematch',
+          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          time_control: invite.time_control || 600,
+          white_time_remaining: invite.time_control || 600,
+          black_time_remaining: invite.time_control || 600,
+        })
+        .select()
+        .single();
+
+      if (gameError) throw gameError;
+
+      // Update invite
+      await supabase
+        .from('game_invites')
+        .update({ 
+          status: 'accepted',
+          game_id: newGame.id,
+        })
+        .eq('id', inviteId);
+
+      // Reset and start new game
       chess.reset();
       setBoardPosition(chess.board());
       setMoveHistory([]);
@@ -804,10 +926,11 @@ export const useOnlineGame = (userId: string | undefined) => {
       setSelectedSquare(null);
       setValidMoves([]);
       
-      // Set new game
       setCurrentGame(newGame as OnlineGame);
       const newColor = newGame.white_player_id === userId ? 'w' : 'b';
       setPlayerColor(newColor);
+      setWhiteTimeRemaining(newGame.time_control || 600);
+      setBlackTimeRemaining(newGame.time_control || 600);
 
       toast({
         title: "Rematch started!",
@@ -816,15 +939,89 @@ export const useOnlineGame = (userId: string | undefined) => {
 
       return newGame;
     } catch (error) {
-      console.error('Error creating rematch:', error);
+      console.error('Error accepting rematch:', error);
       toast({
         title: "Error",
-        description: "Failed to create rematch.",
+        description: "Failed to start rematch.",
         variant: "destructive",
       });
       return null;
     }
-  }, [currentGame, userId, playerColor, chess, toast]);
+  }, [userId, currentGame, chess, toast]);
+
+  // Listen for rematch invites
+  useEffect(() => {
+    if (!userId || !currentGame?.id) return;
+
+    const channel = supabase
+      .channel(`rematch-invites-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'game_invites',
+          filter: `to_user_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const invite = payload.new as any;
+          // Check if this is a rematch for our current game
+          if (invite.game_id === currentGame.id && invite.status === 'pending') {
+            toast({
+              title: "Rematch requested!",
+              description: "Your opponent wants a rematch.",
+              action: undefined,
+            });
+            setRematchRequest(invite);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_invites',
+          filter: `from_user_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const invite = payload.new as any;
+          if (invite.status === 'accepted' && invite.game_id) {
+            // Opponent accepted, join the new game
+            const { data: game } = await supabase
+              .from('online_games')
+              .select('*')
+              .eq('id', invite.game_id)
+              .single();
+
+            if (game) {
+              chess.reset();
+              setBoardPosition(chess.board());
+              setMoveHistory([]);
+              setLastMove(null);
+              setSelectedSquare(null);
+              setValidMoves([]);
+              
+              setCurrentGame(game as OnlineGame);
+              const newColor = game.white_player_id === userId ? 'w' : 'b';
+              setPlayerColor(newColor);
+              setWhiteTimeRemaining(game.time_control || 600);
+              setBlackTimeRemaining(game.time_control || 600);
+
+              toast({
+                title: "Rematch accepted!",
+                description: `You're now playing as ${newColor === 'w' ? 'White' : 'Black'}.`,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, currentGame?.id, chess, toast]);
 
   // Draw offer functionality
   const offerDraw = useCallback(async () => {
@@ -903,6 +1100,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     isRealtimeConnected,
     whiteTimeRemaining,
     blackTimeRemaining,
+    rematchRequest,
     isMyTurn: currentGame?.status === 'in_progress' && chess.turn() === playerColor,
     isCheck: chess.isCheck(),
     isCheckmate: chess.isCheckmate(),
@@ -917,6 +1115,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     resignGame,
     leaveGame,
     requestRematch,
+    acceptRematch,
     offerDraw,
     acceptDraw,
     declineDraw,

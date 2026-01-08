@@ -8,13 +8,14 @@ import GameChat from './GameChat';
 import ConnectionStatus from './ConnectionStatus';
 import DrawOffer from './DrawOffer';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { useOnlineGame } from '@/hooks/useOnlineGame';
 import { useAuth, Profile } from '@/hooks/useAuth';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { GameResult } from '@/types/chess';
 import { Square } from 'chess.js';
 import { supabase } from '@/integrations/supabase/client';
-import { Flag, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { Flag, ArrowLeft, Volume2, VolumeX, RotateCcw, Check, X } from 'lucide-react';
 
 interface OnlineGameProps {
   onBack: () => void;
@@ -39,10 +40,12 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
     blackTimeRemaining,
     isDrawOffered,
     isDrawReceived,
+    rematchRequest,
     selectSquare,
     resignGame,
     leaveGame,
     requestRematch,
+    acceptRematch,
     offerDraw,
     acceptDraw,
     declineDraw,
@@ -52,58 +55,53 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showResult, setShowResult] = useState(false);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
-  const [opponentProfile, setOpponentProfile] = useState<Profile | null>(null);
   const [whiteProfile, setWhiteProfile] = useState<Profile | null>(null);
   const [blackProfile, setBlackProfile] = useState<Profile | null>(null);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
 
-  // Fetch both player profiles - refetch when players change
+  // Fetch player profiles when game or players change
   useEffect(() => {
     const fetchProfiles = async () => {
-      if (!currentGame) return;
-      
-      // Fetch white player profile
-      if (currentGame.white_player_id) {
-        const { data: whiteData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', currentGame.white_player_id)
-          .maybeSingle();
-        if (whiteData) {
-          setWhiteProfile(whiteData as Profile);
-        }
+      if (!currentGame) {
+        setIsLoadingProfiles(false);
+        return;
       }
-
-      // Fetch black player profile
-      if (currentGame.black_player_id) {
-        const { data: blackData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', currentGame.black_player_id)
-          .maybeSingle();
-        if (blackData) {
-          setBlackProfile(blackData as Profile);
-          // Set opponent for current user
-          if (currentGame.white_player_id === user?.id) {
-            setOpponentProfile(blackData as Profile);
+      
+      setIsLoadingProfiles(true);
+      
+      try {
+        // Fetch white player profile
+        if (currentGame.white_player_id) {
+          const { data: whiteData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', currentGame.white_player_id)
+            .single();
+          if (whiteData) {
+            setWhiteProfile(whiteData as Profile);
           }
         }
-      }
-      
-      // If current user is black, set white as opponent
-      if (currentGame.black_player_id === user?.id && currentGame.white_player_id) {
-        const { data: whiteData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', currentGame.white_player_id)
-          .maybeSingle();
-        if (whiteData) {
-          setOpponentProfile(whiteData as Profile);
+
+        // Fetch black player profile
+        if (currentGame.black_player_id) {
+          const { data: blackData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', currentGame.black_player_id)
+            .single();
+          if (blackData) {
+            setBlackProfile(blackData as Profile);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching profiles:', error);
+      } finally {
+        setIsLoadingProfiles(false);
       }
     };
 
     fetchProfiles();
-  }, [currentGame?.id, currentGame?.white_player_id, currentGame?.black_player_id, user?.id]);
+  }, [currentGame?.id, currentGame?.white_player_id, currentGame?.black_player_id]);
 
   // Play sounds on moves
   useEffect(() => {
@@ -123,13 +121,12 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
 
   // Handle game over
   useEffect(() => {
-    if (currentGame?.status === 'completed') {
+    if (currentGame?.status === 'completed' && !showResult) {
       playGameOver();
       
-      const isWinner = currentGame.winner_id === user?.id;
       const isDraw = !currentGame.winner_id;
       
-      // Determine winner name based on winner_id
+      // Determine winner name
       let winnerName: string | null = null;
       if (!isDraw && currentGame.winner_id) {
         if (currentGame.winner_id === currentGame.white_player_id) {
@@ -147,7 +144,7 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
       
       setTimeout(() => setShowResult(true), 500);
     }
-  }, [currentGame?.status, currentGame?.winner_id, currentGame?.result, user?.id, whiteProfile, blackProfile, playGameOver, moveHistory.length]);
+  }, [currentGame?.status, currentGame?.winner_id, currentGame?.result, whiteProfile, blackProfile, playGameOver, moveHistory.length, showResult]);
 
   const handleSquareClick = (square: Square) => {
     if (!isMyTurn) return;
@@ -171,6 +168,12 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
     await requestRematch();
   };
 
+  const handleAcceptRematch = async () => {
+    if (rematchRequest) {
+      await acceptRematch(rematchRequest.id);
+    }
+  };
+
   const handleNewGame = () => {
     setShowResult(false);
     setGameResult(null);
@@ -183,8 +186,8 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
   }
 
   // Get player names from profiles
-  const whiteName = whiteProfile?.display_name || whiteProfile?.username || 'Waiting...';
-  const blackName = blackProfile?.display_name || blackProfile?.username || 'Waiting...';
+  const whiteName = whiteProfile?.display_name || whiteProfile?.username || (currentGame.white_player_id ? 'Loading...' : 'Waiting...');
+  const blackName = blackProfile?.display_name || blackProfile?.username || (currentGame.black_player_id ? 'Loading...' : 'Waiting...');
 
   return (
     <motion.div
@@ -196,14 +199,42 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
         {/* Left panel */}
         <div className="order-2 lg:order-1 space-y-4">
           <PlayerInfo
-            name={blackName}
-            color="b"
-            isActive={currentGame.current_turn === 'b' && currentGame.status === 'in_progress'}
-            timeRemaining={blackTimeRemaining}
+            name={playerColor === 'w' ? blackName : whiteName}
+            color={playerColor === 'w' ? 'b' : 'w'}
+            isActive={(playerColor === 'w' ? currentGame.current_turn === 'b' : currentGame.current_turn === 'w') && currentGame.status === 'in_progress'}
+            timeRemaining={playerColor === 'w' ? blackTimeRemaining : whiteTimeRemaining}
             showTimer={!!currentGame.time_control}
           />
           
           <div className="space-y-2">
+            {/* Rematch notification */}
+            {rematchRequest && currentGame.status === 'completed' && (
+              <Card className="border-primary/50 bg-primary/10">
+                <CardContent className="p-3">
+                  <p className="text-sm font-medium mb-2">Rematch requested!</p>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 gap-1"
+                      onClick={handleAcceptRematch}
+                    >
+                      <Check className="w-4 h-4" />
+                      Accept
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1 gap-1"
+                      onClick={handleNewGame}
+                    >
+                      <X className="w-4 h-4" />
+                      Decline
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <DrawOffer
               isOffering={isDrawOffered}
               isReceiving={isDrawReceived}
@@ -248,10 +279,12 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
           <div className="w-full max-w-[min(90vw,500px)] lg:max-w-[500px]">
             <div className="mb-2 flex items-center justify-center gap-3">
               <ConnectionStatus isConnected={isRealtimeConnected} />
-              {isMyTurn ? (
+              {currentGame.status === 'waiting' ? (
+                <span className="text-muted-foreground">Waiting for opponent...</span>
+              ) : isMyTurn ? (
                 <span className="text-green-500 font-medium">Your turn</span>
               ) : (
-                <span className="text-muted-foreground">Waiting for opponent...</span>
+                <span className="text-muted-foreground">Opponent's turn</span>
               )}
             </div>
             <ChessBoard
@@ -271,10 +304,10 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
         {/* Right panel */}
         <div className="order-3 space-y-4">
           <PlayerInfo
-            name={whiteName}
-            color="w"
-            isActive={currentGame.current_turn === 'w' && currentGame.status === 'in_progress'}
-            timeRemaining={whiteTimeRemaining}
+            name={playerColor === 'w' ? whiteName : blackName}
+            color={playerColor === 'w' ? 'w' : 'b'}
+            isActive={(playerColor === 'w' ? currentGame.current_turn === 'w' : currentGame.current_turn === 'b') && currentGame.status === 'in_progress'}
+            timeRemaining={playerColor === 'w' ? whiteTimeRemaining : blackTimeRemaining}
             showTimer={!!currentGame.time_control}
           />
           
@@ -298,7 +331,7 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
         <GameChat
           gameId={currentGame.id}
           currentUserId={user.id}
-          opponentName={opponentProfile?.display_name || opponentProfile?.username || 'Opponent'}
+          opponentName={playerColor === 'w' ? blackName : whiteName}
         />
       )}
     </motion.div>

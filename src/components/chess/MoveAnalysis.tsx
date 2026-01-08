@@ -13,7 +13,8 @@ import {
   ChevronUp,
   Target,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 
 interface MoveAnalysisProps {
@@ -24,82 +25,119 @@ interface MoveAnalysisProps {
 
 interface AnalyzedMove extends Move {
   quality: 'brilliant' | 'good' | 'book' | 'inaccuracy' | 'mistake' | 'blunder';
-  evaluation: number;
   moveNumber: number;
   color: 'w' | 'b';
 }
 
-// Simple move analysis based on common chess patterns
-const analyzeMove = (move: Move, moveIndex: number): AnalyzedMove => {
+// Deterministic move analysis based on actual chess patterns
+const analyzeMove = (move: Move, moveIndex: number, allMoves: Move[]): AnalyzedMove => {
   const moveNumber = Math.floor(moveIndex / 2) + 1;
   const color = moveIndex % 2 === 0 ? 'w' : 'b';
   
-  // Basic heuristics for move quality
   let quality: AnalyzedMove['quality'] = 'book';
-  let evaluation = 0;
   
-  // Captures are generally interesting
+  const pieceValues: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  
+  // Checkmate is always brilliant
+  if (move.san.includes('#')) {
+    quality = 'brilliant';
+    return { ...move, quality, moveNumber, color };
+  }
+  
+  // Check if this move delivers check
+  const isCheck = move.san.includes('+');
+  
+  // Castling is generally good (king safety)
+  if (move.san === 'O-O' || move.san === 'O-O-O') {
+    quality = 'good';
+    return { ...move, quality, moveNumber, color };
+  }
+  
+  // Pawn promotions
+  if (move.promotion) {
+    // Queen promotion is usually good
+    if (move.promotion === 'q') {
+      quality = isCheck ? 'brilliant' : 'good';
+    } else {
+      // Underpromotion might be inaccuracy unless it's avoiding stalemate
+      quality = 'book';
+    }
+    return { ...move, quality, moveNumber, color };
+  }
+  
+  // Captures analysis
   if (move.captured) {
-    const pieceValues: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 };
     const capturedValue = pieceValues[move.captured] || 0;
-    const movedPieceValue = pieceValues[move.piece] || 1;
+    const movingPieceValue = pieceValues[move.piece] || 1;
     
-    if (capturedValue > movedPieceValue) {
-      quality = 'good';
-      evaluation = capturedValue - movedPieceValue;
-    } else if (capturedValue < movedPieceValue && !move.san.includes('+')) {
-      // Trading down without check might be inaccurate
-      quality = Math.random() > 0.7 ? 'inaccuracy' : 'book';
-      evaluation = capturedValue - movedPieceValue;
+    // Winning material (capturing higher value piece with lower value)
+    if (capturedValue > movingPieceValue) {
+      const valueDiff = capturedValue - movingPieceValue;
+      if (valueDiff >= 4) {
+        quality = 'brilliant'; // Winning queen with minor piece
+      } else if (valueDiff >= 2) {
+        quality = 'good'; // Winning exchange or similar
+      } else {
+        quality = 'good';
+      }
+    } 
+    // Equal trade
+    else if (capturedValue === movingPieceValue) {
+      quality = 'book';
+    }
+    // Trading down (could be tactical or mistake)
+    else {
+      // If it gives check, might be tactical
+      if (isCheck) {
+        quality = 'book';
+      } else {
+        quality = 'inaccuracy';
+      }
+    }
+    return { ...move, quality, moveNumber, color };
+  }
+  
+  // Early queen moves (before move 10) are often inaccurate
+  if (move.piece === 'q' && moveIndex < 10) {
+    // Unless it's delivering check or capturing
+    if (!isCheck && !move.captured) {
+      quality = 'inaccuracy';
+      return { ...move, quality, moveNumber, color };
     }
   }
   
-  // Check moves are usually good
-  if (move.san.includes('+')) {
-    quality = Math.random() > 0.5 ? 'good' : 'book';
-    evaluation = 0.5;
+  // Knight to rim is dim (knights on edge of board)
+  if (move.piece === 'n') {
+    const toFile = move.to[0];
+    const toRank = move.to[1];
+    if (toFile === 'a' || toFile === 'h') {
+      quality = 'inaccuracy';
+      return { ...move, quality, moveNumber, color };
+    }
+    // Knight to center is usually good in opening
+    if (moveIndex < 12 && (toFile === 'd' || toFile === 'e') && (toRank === '4' || toRank === '5')) {
+      quality = 'good';
+      return { ...move, quality, moveNumber, color };
+    }
   }
   
-  // Checkmate is brilliant
-  if (move.san.includes('#')) {
-    quality = 'brilliant';
-    evaluation = 100;
+  // Central pawn moves in opening are good
+  if (move.piece === 'p' && moveIndex < 8) {
+    const toFile = move.to[0];
+    if ((toFile === 'd' || toFile === 'e') && (move.to[1] === '4' || move.to[1] === '5')) {
+      quality = 'good';
+      return { ...move, quality, moveNumber, color };
+    }
   }
   
-  // Castling is generally good (safety)
-  if (move.san === 'O-O' || move.san === 'O-O-O') {
+  // Check moves are usually good (creates threats)
+  if (isCheck) {
     quality = 'good';
-    evaluation = 0.3;
+    return { ...move, quality, moveNumber, color };
   }
   
-  // Queen moves early might be inaccurate
-  if (move.piece === 'q' && moveIndex < 10) {
-    quality = Math.random() > 0.6 ? 'inaccuracy' : 'book';
-  }
-  
-  // Pawn promotions are usually good
-  if (move.promotion) {
-    quality = move.promotion === 'q' ? 'good' : 'book';
-    evaluation = 8;
-  }
-  
-  // Random variation for more realistic analysis
-  const rand = Math.random();
-  if (quality === 'book') {
-    if (rand < 0.1) quality = 'brilliant';
-    else if (rand < 0.3) quality = 'good';
-    else if (rand < 0.85) quality = 'book';
-    else if (rand < 0.95) quality = 'inaccuracy';
-    else quality = 'mistake';
-  }
-  
-  return {
-    ...move,
-    quality,
-    evaluation,
-    moveNumber,
-    color,
-  };
+  // Default: book move
+  return { ...move, quality, moveNumber, color };
 };
 
 const MoveAnalysis: React.FC<MoveAnalysisProps> = ({ 
@@ -110,7 +148,7 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
   const [expanded, setExpanded] = useState(false);
   
   const analyzedMoves = useMemo(() => {
-    return moves.map((move, index) => analyzeMove(move, index));
+    return moves.map((move, index) => analyzeMove(move, index, moves));
   }, [moves]);
   
   const stats = useMemo(() => {
@@ -131,9 +169,9 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
   const getQualityIcon = (quality: AnalyzedMove['quality']) => {
     switch (quality) {
       case 'brilliant':
-        return <CheckCircle2 className="w-4 h-4 text-cyan-500" />;
+        return <Sparkles className="w-4 h-4 text-cyan-400" />;
       case 'good':
-        return <TrendingUp className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'book':
         return <Minus className="w-4 h-4 text-muted-foreground" />;
       case 'inaccuracy':
@@ -147,7 +185,7 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
   
   const getQualityColor = (quality: AnalyzedMove['quality']) => {
     switch (quality) {
-      case 'brilliant': return 'bg-cyan-500/20 text-cyan-500 border-cyan-500/30';
+      case 'brilliant': return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30';
       case 'good': return 'bg-green-500/20 text-green-500 border-green-500/30';
       case 'book': return 'bg-secondary text-muted-foreground border-border';
       case 'inaccuracy': return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30';
@@ -161,7 +199,7 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
   };
 
   const interestingMoves = analyzedMoves.filter(m => 
-    m.quality !== 'book' && m.quality !== 'good'
+    m.quality === 'brilliant' || m.quality === 'inaccuracy' || m.quality === 'mistake' || m.quality === 'blunder'
   );
   
   if (moves.length === 0) {
@@ -191,12 +229,13 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-white border border-border" />
-              <span className="font-medium text-sm">{whitePlayerName}</span>
+              <span className="font-medium text-sm truncate">{whitePlayerName}</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {stats.white.brilliant > 0 && (
-                <Badge variant="outline" className="text-xs bg-cyan-500/20 text-cyan-500">
-                  {stats.white.brilliant} Brilliant
+                <Badge variant="outline" className="text-xs bg-cyan-500/20 text-cyan-400 gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  {stats.white.brilliant}
                 </Badge>
               )}
               {stats.white.good > 0 && (
@@ -206,12 +245,17 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
               )}
               {stats.white.inaccuracy > 0 && (
                 <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-500">
-                  {stats.white.inaccuracy} Inaccuracy
+                  {stats.white.inaccuracy} ?!
                 </Badge>
               )}
               {stats.white.mistake > 0 && (
                 <Badge variant="outline" className="text-xs bg-orange-500/20 text-orange-500">
-                  {stats.white.mistake} Mistake
+                  {stats.white.mistake} ?
+                </Badge>
+              )}
+              {stats.white.blunder > 0 && (
+                <Badge variant="outline" className="text-xs bg-red-500/20 text-red-500">
+                  {stats.white.blunder} ??
                 </Badge>
               )}
             </div>
@@ -220,12 +264,13 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-gray-800 border border-border" />
-              <span className="font-medium text-sm">{blackPlayerName}</span>
+              <span className="font-medium text-sm truncate">{blackPlayerName}</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {stats.black.brilliant > 0 && (
-                <Badge variant="outline" className="text-xs bg-cyan-500/20 text-cyan-500">
-                  {stats.black.brilliant} Brilliant
+                <Badge variant="outline" className="text-xs bg-cyan-500/20 text-cyan-400 gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  {stats.black.brilliant}
                 </Badge>
               )}
               {stats.black.good > 0 && (
@@ -235,12 +280,17 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
               )}
               {stats.black.inaccuracy > 0 && (
                 <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-500">
-                  {stats.black.inaccuracy} Inaccuracy
+                  {stats.black.inaccuracy} ?!
                 </Badge>
               )}
               {stats.black.mistake > 0 && (
                 <Badge variant="outline" className="text-xs bg-orange-500/20 text-orange-500">
-                  {stats.black.mistake} Mistake
+                  {stats.black.mistake} ?
+                </Badge>
+              )}
+              {stats.black.blunder > 0 && (
+                <Badge variant="outline" className="text-xs bg-red-500/20 text-red-500">
+                  {stats.black.blunder} ??
                 </Badge>
               )}
             </div>
@@ -252,7 +302,7 @@ const MoveAnalysis: React.FC<MoveAnalysisProps> = ({
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Key Moments</p>
             <div className="flex flex-wrap gap-2">
-              {interestingMoves.slice(0, 5).map((move, index) => (
+              {interestingMoves.slice(0, 6).map((move, index) => (
                 <Badge 
                   key={index}
                   variant="outline"

@@ -66,6 +66,7 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
   const [copied, setCopied] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<Profile[]>([]);
   const [waitingGames, setWaitingGames] = useState<number>(0);
+  const [selectedTimeControl, setSelectedTimeControl] = useState<number>(600);
 
   // Fetch online players and waiting games
   useEffect(() => {
@@ -241,69 +242,98 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                   </Button>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Quick Match */}
-                  <Card className="border-primary/20 hover:border-primary/50 transition-colors cursor-pointer group"
-                    onClick={() => !isSearching && findRandomGame()}>
-                    <CardContent className="pt-6 text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                        <Globe className="w-8 h-8 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">Quick Match</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Play against a random opponent
-                      </p>
-                      <Button className="w-full" disabled={isSearching}>
-                        {isSearching ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Searching...
-                          </>
-                        ) : (
-                          'Find Match'
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Play with Friend */}
-                  <Card className="border-primary/20">
-                    <CardContent className="pt-6 text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                        <UserPlus className="w-8 h-8 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">Play with Friend</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Create a private game or join with code
-                      </p>
-                      
-                      <div className="space-y-3">
-                        <Button 
-                          className="w-full" 
-                          onClick={createFriendGame}
-                          disabled={isConnecting}
+                <div className="space-y-6">
+                  {/* Time Control Selection */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-muted-foreground">Select Time Control</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { value: 60, label: 'Bullet', sublabel: '1 min', icon: '⚡' },
+                        { value: 300, label: 'Blitz', sublabel: '5 min', icon: '🔥' },
+                        { value: 600, label: 'Rapid', sublabel: '10 min', icon: '⏱️' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          className={`p-4 rounded-lg border-2 transition-all ${
+                            selectedTimeControl === preset.value
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border bg-secondary/50 hover:border-primary/50'
+                          }`}
+                          onClick={() => setSelectedTimeControl(preset.value)}
                         >
-                          Create Game
-                        </Button>
-                        
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Enter code"
-                            value={inviteCode}
-                            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                            className="text-center font-mono"
-                            maxLength={6}
-                          />
-                          <Button 
-                            onClick={handleJoinWithCode}
-                            disabled={!inviteCode.trim() || isConnecting}
-                          >
-                            Join
-                          </Button>
+                          <span className="text-2xl mb-1 block">{preset.icon}</span>
+                          <p className="font-medium text-sm">{preset.label}</p>
+                          <p className="text-xs text-muted-foreground">{preset.sublabel}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Quick Match */}
+                    <Card className="border-primary/20 hover:border-primary/50 transition-colors cursor-pointer group"
+                      onClick={() => !isSearching && findRandomGame(selectedTimeControl)}>
+                      <CardContent className="pt-6 text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                          <Globe className="w-8 h-8 text-primary" />
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        <h3 className="text-lg font-semibold mb-2">Quick Match</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Play against a random opponent
+                        </p>
+                        <Button className="w-full" disabled={isSearching}>
+                          {isSearching ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Searching...
+                            </>
+                          ) : (
+                            'Find Match'
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Play with Friend */}
+                    <Card className="border-primary/20">
+                      <CardContent className="pt-6 text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                          <UserPlus className="w-8 h-8 text-primary" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Play with Friend</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Create a private game or join with code
+                        </p>
+                        
+                        <div className="space-y-3">
+                          <Button 
+                            className="w-full" 
+                            onClick={() => createFriendGame(selectedTimeControl)}
+                            disabled={isConnecting}
+                          >
+                            Create Game
+                          </Button>
+                          
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Enter code"
+                              value={inviteCode}
+                              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                              className="text-center font-mono"
+                              maxLength={6}
+                            />
+                            <Button 
+                              onClick={handleJoinWithCode}
+                              disabled={!inviteCode.trim() || isConnecting}
+                            >
+                              Join
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               )}
             </TabsContent>
@@ -385,40 +415,51 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                       const friend = friendship.friend_profile;
                       if (!friend) return null;
                       
+                      const winRate = friend.games_played > 0 
+                        ? Math.round((friend.games_won / friend.games_played) * 100) 
+                        : 0;
+                      
                       return (
-                        <div key={friendship.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-secondary/50">
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={friend.avatar_url || undefined} />
-                                <AvatarFallback>{friend.username[0].toUpperCase()}</AvatarFallback>
-                              </Avatar>
-                              {friend.is_online && (
-                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-                              )}
+                        <div key={friendship.id} className="p-3 rounded-lg hover:bg-secondary/50 mb-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <Avatar className="w-10 h-10">
+                                  <AvatarImage src={friend.avatar_url || undefined} />
+                                  <AvatarFallback>{friend.username[0].toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                {friend.is_online && (
+                                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium">{friend.display_name || friend.username}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Trophy className="w-3 h-3" />
+                                    {friend.rating}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{friend.games_played} games</span>
+                                  <span>•</span>
+                                  <span className="text-green-500">{winRate}% wins</span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium">{friend.display_name || friend.username}</p>
-                              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                <Trophy className="w-3 h-3" />
-                                {friend.rating} • {friend.is_online ? 'Online' : 'Offline'}
-                              </p>
-                            </div>
+                            <Button 
+                              size="sm" 
+                              disabled={!friend.is_online}
+                              onClick={async () => {
+                                const invite = await sendGameInvite(friend.user_id, selectedTimeControl);
+                                if (invite?.game_id) {
+                                  await joinGameById(invite.game_id);
+                                }
+                              }}
+                            >
+                              <Swords className="w-4 h-4 mr-1" />
+                              Challenge
+                            </Button>
                           </div>
-                          <Button 
-                            size="sm" 
-                            disabled={!friend.is_online}
-                            onClick={async () => {
-                              const invite = await sendGameInvite(friend.user_id);
-                              if (invite?.game_id) {
-                                // Join the game we just created so we see it
-                                await joinGameById(invite.game_id);
-                              }
-                            }}
-                          >
-                            <Swords className="w-4 h-4 mr-1" />
-                            Challenge
-                          </Button>
                         </div>
                       );
                     })
@@ -434,49 +475,85 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                   <p>No pending game invites</p>
                 </div>
               ) : (
-                <ScrollArea className="h-64">
-                  {gameInvites.map((invite) => (
-                    <div key={invite.id} className="flex items-center justify-between py-3 px-4 rounded-lg bg-secondary/30 mb-2">
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={invite.from_profile?.avatar_url || undefined} />
-                          <AvatarFallback>
-                            {invite.from_profile?.username[0].toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">
-                            {invite.from_profile?.display_name || invite.from_profile?.username}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {Math.floor(invite.time_control / 60)} min game
-                          </p>
+                <ScrollArea className="h-80">
+                  {gameInvites.map((invite) => {
+                    const fromProfile = invite.from_profile;
+                    const winRate = fromProfile && fromProfile.games_played > 0 
+                      ? Math.round((fromProfile.games_won / fromProfile.games_played) * 100) 
+                      : 0;
+                    const timePreset = invite.time_control === 60 ? 'Bullet' 
+                      : invite.time_control === 300 ? 'Blitz' 
+                      : invite.time_control === 600 ? 'Rapid' 
+                      : `${Math.floor(invite.time_control / 60)}min`;
+                    
+                    return (
+                      <div key={invite.id} className="p-4 rounded-lg bg-secondary/30 mb-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-12 h-12">
+                              <AvatarImage src={fromProfile?.avatar_url || undefined} />
+                              <AvatarFallback className="text-lg">
+                                {fromProfile?.username[0].toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold text-lg">
+                                {fromProfile?.display_name || fromProfile?.username}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm">
+                                <Badge variant="secondary" className="gap-1">
+                                  <Trophy className="w-3 h-3" />
+                                  {fromProfile?.rating || 1200}
+                                </Badge>
+                                <Badge variant="outline">{timePreset}</Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Opponent Stats */}
+                        <div className="grid grid-cols-4 gap-2 p-2 bg-background/50 rounded-lg text-center text-sm">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Games</p>
+                            <p className="font-semibold">{fromProfile?.games_played || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Wins</p>
+                            <p className="font-semibold text-green-500">{fromProfile?.games_won || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Losses</p>
+                            <p className="font-semibold text-red-500">{fromProfile?.games_lost || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Win%</p>
+                            <p className="font-semibold">{winRate}%</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            className="flex-1"
+                            onClick={async () => {
+                              const gameId = await respondToGameInvite(invite.id, true);
+                              if (gameId) {
+                                await new Promise(resolve => setTimeout(resolve, 300));
+                                await joinGameById(gameId);
+                              }
+                            }}
+                          >
+                            Accept Challenge
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => respondToGameInvite(invite.id, false)}
+                          >
+                            Decline
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={async () => {
-                            const gameId = await respondToGameInvite(invite.id, true);
-                            if (gameId) {
-                              // Wait for database to sync before joining
-                              await new Promise(resolve => setTimeout(resolve, 300));
-                              await joinGameById(gameId);
-                            }
-                          }}
-                        >
-                          Accept
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => respondToGameInvite(invite.id, false)}
-                        >
-                          Decline
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </ScrollArea>
               )}
             </TabsContent>

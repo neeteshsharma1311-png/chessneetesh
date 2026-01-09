@@ -39,13 +39,13 @@ const analyzeMove = (move: Move, moveIndex: number, allMoves: Move[]): AnalyzedM
   const pieceValues: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
   
   // Checkmate is always brilliant
-  if (move.san.includes('#')) {
+  if (move.san?.includes('#')) {
     quality = 'brilliant';
     return { ...move, quality, moveNumber, color };
   }
   
   // Check if this move delivers check
-  const isCheck = move.san.includes('+');
+  const isCheck = move.san?.includes('+') || false;
   
   // Castling is generally good (king safety)
   if (move.san === 'O-O' || move.san === 'O-O-O') {
@@ -59,73 +59,112 @@ const analyzeMove = (move: Move, moveIndex: number, allMoves: Move[]): AnalyzedM
     if (move.promotion === 'q') {
       quality = isCheck ? 'brilliant' : 'good';
     } else {
-      // Underpromotion might be inaccuracy unless it's avoiding stalemate
+      // Underpromotion might be tactical
       quality = 'book';
     }
     return { ...move, quality, moveNumber, color };
   }
   
-  // Captures analysis
+  // Captures analysis - this is where good/bad moves are most visible
   if (move.captured) {
     const capturedValue = pieceValues[move.captured] || 0;
     const movingPieceValue = pieceValues[move.piece] || 1;
     
-    // Winning material (capturing higher value piece with lower value)
+    // Winning material (capturing higher value piece with lower value piece)
     if (capturedValue > movingPieceValue) {
       const valueDiff = capturedValue - movingPieceValue;
-      if (valueDiff >= 4) {
-        quality = 'brilliant'; // Winning queen with minor piece
+      if (valueDiff >= 6) {
+        quality = 'brilliant'; // Winning queen with pawn or minor piece
       } else if (valueDiff >= 2) {
-        quality = 'good'; // Winning exchange or similar
+        quality = 'good'; // Winning exchange or good trade
       } else {
-        quality = 'good';
+        quality = 'good'; // Any winning material capture
       }
     } 
-    // Equal trade
+    // Equal trade (same value pieces)
     else if (capturedValue === movingPieceValue) {
-      quality = 'book';
+      quality = 'book'; // Neutral trade
     }
-    // Trading down (could be tactical or mistake)
+    // Trading down (losing material) - could be a blunder unless tactical
     else {
-      // If it gives check, might be tactical
+      const valueLoss = movingPieceValue - capturedValue;
       if (isCheck) {
-        quality = 'book';
+        // Check might make it tactical
+        quality = valueLoss >= 3 ? 'inaccuracy' : 'book';
+      } else if (valueLoss >= 6) {
+        quality = 'blunder'; // Losing a lot of material
+      } else if (valueLoss >= 3) {
+        quality = 'mistake'; // Losing significant material
       } else {
-        quality = 'inaccuracy';
+        quality = 'inaccuracy'; // Minor material loss
       }
     }
     return { ...move, quality, moveNumber, color };
   }
   
+  // Check for piece development patterns
+  const piece = move.piece?.toLowerCase();
+  const fromSquare = move.from;
+  const toSquare = move.to;
+  
   // Early queen moves (before move 10) are often inaccurate
-  if (move.piece === 'q' && moveIndex < 10) {
-    // Unless it's delivering check or capturing
-    if (!isCheck && !move.captured) {
+  if (piece === 'q' && moveIndex < 10) {
+    if (!isCheck) {
       quality = 'inaccuracy';
       return { ...move, quality, moveNumber, color };
     }
   }
   
-  // Knight to rim is dim (knights on edge of board)
-  if (move.piece === 'n') {
-    const toFile = move.to[0];
-    const toRank = move.to[1];
+  // Knight positioning
+  if (piece === 'n' && toSquare) {
+    const toFile = toSquare[0];
+    const toRank = toSquare[1];
+    
+    // Knight on rim is dim (edge of board)
     if (toFile === 'a' || toFile === 'h') {
       quality = 'inaccuracy';
       return { ...move, quality, moveNumber, color };
     }
+    
     // Knight to center is usually good in opening
     if (moveIndex < 12 && (toFile === 'd' || toFile === 'e') && (toRank === '4' || toRank === '5')) {
+      quality = 'good';
+      return { ...move, quality, moveNumber, color };
+    }
+    
+    // Developing knights early is good
+    if (moveIndex < 8 && (toFile === 'c' || toFile === 'f') && (toRank === '3' || toRank === '6')) {
+      quality = 'good';
+      return { ...move, quality, moveNumber, color };
+    }
+  }
+  
+  // Bishop development
+  if (piece === 'b' && moveIndex < 12) {
+    // Developing bishops early is generally good
+    const developmentSquares = ['c4', 'f4', 'b5', 'g5', 'c5', 'f5', 'b4', 'g4', 'e2', 'd2', 'e3', 'd3'];
+    if (developmentSquares.includes(toSquare)) {
       quality = 'good';
       return { ...move, quality, moveNumber, color };
     }
   }
   
   // Central pawn moves in opening are good
-  if (move.piece === 'p' && moveIndex < 8) {
-    const toFile = move.to[0];
-    if ((toFile === 'd' || toFile === 'e') && (move.to[1] === '4' || move.to[1] === '5')) {
+  if (piece === 'p' && moveIndex < 8 && toSquare) {
+    const toFile = toSquare[0];
+    const toRank = toSquare[1];
+    if ((toFile === 'd' || toFile === 'e') && (toRank === '4' || toRank === '5')) {
       quality = 'good';
+      return { ...move, quality, moveNumber, color };
+    }
+  }
+  
+  // Pawn pushes that could be weakening
+  if (piece === 'p' && moveIndex > 10 && toSquare) {
+    const toFile = toSquare[0];
+    // Pushing edge pawns in middlegame can be dubious
+    if ((toFile === 'a' || toFile === 'h') && !isCheck) {
+      quality = 'inaccuracy';
       return { ...move, quality, moveNumber, color };
     }
   }
@@ -136,7 +175,17 @@ const analyzeMove = (move: Move, moveIndex: number, allMoves: Move[]): AnalyzedM
     return { ...move, quality, moveNumber, color };
   }
   
-  // Default: book move
+  // Rook moves to open files are good
+  if (piece === 'r' && toSquare) {
+    const toFile = toSquare[0];
+    // If rook moves to d or e file (usually open), it's often good
+    if (moveIndex > 10 && (toFile === 'd' || toFile === 'e')) {
+      quality = 'good';
+      return { ...move, quality, moveNumber, color };
+    }
+  }
+  
+  // Default: book move (neutral)
   return { ...move, quality, moveNumber, color };
 };
 

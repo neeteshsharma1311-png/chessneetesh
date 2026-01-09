@@ -451,7 +451,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     }
   }, [userId, chess, loadMoveHistory]);
 
-  const findRandomGame = useCallback(async () => {
+  const findRandomGame = useCallback(async (timeControl: number = 600) => {
     if (!userId) return null;
     setIsSearching(true);
 
@@ -461,6 +461,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         .select('*')
         .eq('status', 'waiting')
         .eq('game_type', 'random')
+        .eq('time_control', timeControl)
         .is('black_player_id', null)
         .neq('white_player_id', userId)
         .limit(1);
@@ -501,7 +502,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         return updatedGame;
       }
 
-      // Create new game
+      // Create new game with selected time control
       const { data: newGame, error: createError } = await supabase
         .from('online_games')
         .insert({
@@ -509,9 +510,9 @@ export const useOnlineGame = (userId: string | undefined) => {
           status: 'waiting',
           game_type: 'random',
           fen: chess.fen(),
-          time_control: 600,
-          white_time_remaining: 600,
-          black_time_remaining: 600,
+          time_control: timeControl,
+          white_time_remaining: timeControl,
+          black_time_remaining: timeControl,
         })
         .select()
         .single();
@@ -520,12 +521,13 @@ export const useOnlineGame = (userId: string | undefined) => {
 
       setCurrentGame(newGame);
       setPlayerColor('w');
-      setWhiteTimeRemaining(600);
-      setBlackTimeRemaining(600);
+      setWhiteTimeRemaining(timeControl);
+      setBlackTimeRemaining(timeControl);
       
+      const timeLabel = timeControl === 60 ? 'Bullet (1 min)' : timeControl === 300 ? 'Blitz (5 min)' : 'Rapid (10 min)';
       toast({
         title: "Searching for opponent...",
-        description: "Waiting for another player to join.",
+        description: `${timeLabel} game. Waiting for another player.`,
       });
 
       setIsSearching(false);
@@ -542,7 +544,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     }
   }, [userId, chess, toast]);
 
-  const createFriendGame = useCallback(async () => {
+  const createFriendGame = useCallback(async (timeControl: number = 600) => {
     if (!userId) return null;
 
     try {
@@ -557,9 +559,9 @@ export const useOnlineGame = (userId: string | undefined) => {
           game_type: 'friend',
           fen: chess.fen(),
           invite_code: inviteCode,
-          time_control: 600,
-          white_time_remaining: 600,
-          black_time_remaining: 600,
+          time_control: timeControl,
+          white_time_remaining: timeControl,
+          black_time_remaining: timeControl,
         })
         .select()
         .single();
@@ -569,12 +571,13 @@ export const useOnlineGame = (userId: string | undefined) => {
       console.log('useOnlineGame: Created friend game:', newGame.id);
       setCurrentGame(newGame);
       setPlayerColor('w');
-      setWhiteTimeRemaining(600);
-      setBlackTimeRemaining(600);
+      setWhiteTimeRemaining(timeControl);
+      setBlackTimeRemaining(timeControl);
 
+      const timeLabel = timeControl === 60 ? 'Bullet (1 min)' : timeControl === 300 ? 'Blitz (5 min)' : 'Rapid (10 min)';
       toast({
         title: "Game created!",
-        description: `Share code: ${inviteCode}`,
+        description: `Share code: ${inviteCode} • ${timeLabel}`,
       });
 
       return newGame;

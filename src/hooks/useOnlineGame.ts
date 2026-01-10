@@ -99,7 +99,7 @@ export const useOnlineGame = (userId: string | undefined) => {
     }
   }, [currentGame, playerColor, toast]);
 
-  // Timer countdown effect - uses ref to avoid stale closure
+  // Timer countdown effect - uses ref to avoid stale closure and syncs with database
   useEffect(() => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -108,6 +108,12 @@ export const useOnlineGame = (userId: string | undefined) => {
 
     if (!currentGame || currentGame.status !== 'in_progress' || !currentGame.time_control) {
       return;
+    }
+
+    // Initialize timers from game state if not already set
+    if (currentGame.white_time_remaining != null && currentGame.black_time_remaining != null) {
+      setWhiteTimeRemaining(currentGame.white_time_remaining);
+      setBlackTimeRemaining(currentGame.black_time_remaining);
     }
 
     timerIntervalRef.current = setInterval(() => {
@@ -138,7 +144,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         timerIntervalRef.current = null;
       }
     };
-  }, [currentGame?.id, currentGame?.status, currentGame?.time_control, endGameByTimeout]);
+  }, [currentGame?.id, currentGame?.status, currentGame?.time_control, currentGame?.white_time_remaining, currentGame?.black_time_remaining, endGameByTimeout]);
 
   // Load existing move history when joining a game
   const loadMoveHistory = useCallback(async (gameId: string) => {
@@ -295,7 +301,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         setIsRealtimeConnected(status === 'SUBSCRIBED');
       });
 
-    // Aggressive polling for waiting games and turn changes
+    // Aggressive polling for waiting games and turn changes - faster interval
     let pollInterval: NodeJS.Timeout | null = null;
     
     const pollGameState = async () => {
@@ -310,13 +316,17 @@ export const useOnlineGame = (userId: string | undefined) => {
           game.status !== currentGame.status || 
           game.black_player_id !== currentGame.black_player_id ||
           game.fen !== currentGame.fen ||
-          game.current_turn !== currentGame.current_turn;
+          game.current_turn !== currentGame.current_turn ||
+          game.white_time_remaining !== currentGame.white_time_remaining ||
+          game.black_time_remaining !== currentGame.black_time_remaining;
           
         if (hasChanges) {
           console.log('useOnlineGame: Polling detected state change:', {
             status: game.status,
             black_player: game.black_player_id,
-            current_turn: game.current_turn
+            current_turn: game.current_turn,
+            white_time: game.white_time_remaining,
+            black_time: game.black_time_remaining
           });
           
           if (currentGame.status === 'waiting' && game.status === 'in_progress' && game.black_player_id) {
@@ -347,11 +357,19 @@ export const useOnlineGame = (userId: string | undefined) => {
             setBoardPosition(chess.board());
           }
           
+          // Sync timers from database - only update if significantly different
           if (game.white_time_remaining != null) {
-            setWhiteTimeRemaining(game.white_time_remaining);
+            setWhiteTimeRemaining(prev => {
+              const diff = Math.abs(prev - game.white_time_remaining);
+              // Only sync if difference is more than 2 seconds (to avoid flicker)
+              return diff > 2 ? game.white_time_remaining : prev;
+            });
           }
           if (game.black_time_remaining != null) {
-            setBlackTimeRemaining(game.black_time_remaining);
+            setBlackTimeRemaining(prev => {
+              const diff = Math.abs(prev - game.black_time_remaining);
+              return diff > 2 ? game.black_time_remaining : prev;
+            });
           }
         }
       }
@@ -359,7 +377,8 @@ export const useOnlineGame = (userId: string | undefined) => {
     
     console.log('useOnlineGame: Starting polling for game:', currentGame.id);
     pollGameState();
-    pollInterval = setInterval(pollGameState, 1500);
+    // More frequent polling (every second) for better sync
+    pollInterval = setInterval(pollGameState, 1000);
 
     return () => {
       console.log('useOnlineGame: Cleaning up game subscription');
@@ -524,7 +543,7 @@ export const useOnlineGame = (userId: string | undefined) => {
       setWhiteTimeRemaining(timeControl);
       setBlackTimeRemaining(timeControl);
       
-      const timeLabel = timeControl === 60 ? 'Bullet (1 min)' : timeControl === 300 ? 'Blitz (5 min)' : 'Rapid (10 min)';
+      const timeLabel = timeControl === 600 ? 'Rapid (10 min)' : timeControl === 900 ? 'Classical (15 min)' : 'Classical (30 min)';
       toast({
         title: "Searching for opponent...",
         description: `${timeLabel} game. Waiting for another player.`,
@@ -574,7 +593,7 @@ export const useOnlineGame = (userId: string | undefined) => {
       setWhiteTimeRemaining(timeControl);
       setBlackTimeRemaining(timeControl);
 
-      const timeLabel = timeControl === 60 ? 'Bullet (1 min)' : timeControl === 300 ? 'Blitz (5 min)' : 'Rapid (10 min)';
+      const timeLabel = timeControl === 600 ? 'Rapid (10 min)' : timeControl === 900 ? 'Classical (15 min)' : 'Classical (30 min)';
       toast({
         title: "Game created!",
         description: `Share code: ${inviteCode} • ${timeLabel}`,

@@ -5,6 +5,7 @@ import PlayerInfo from './PlayerInfo';
 import MoveHistory from './MoveHistory';
 import GameResultModal from './GameResultModal';
 import GameChat from './GameChat';
+import VoiceChat from './VoiceChat';
 import ConnectionStatus from './ConnectionStatus';
 import DrawOffer from './DrawOffer';
 import { Button } from '@/components/ui/button';
@@ -212,9 +213,12 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
     return null;
   }
 
-  // Get player names from profiles - use actual usernames, never "Chess Player"
-  const whiteName = whiteProfile?.display_name || whiteProfile?.username || (currentGame.white_player_id ? 'Loading...' : 'Waiting...');
-  const blackName = blackProfile?.display_name || blackProfile?.username || (currentGame.black_player_id ? 'Loading...' : 'Waiting...');
+  // Get player names from profiles - use actual usernames only
+  const whiteName = whiteProfile?.username || whiteProfile?.display_name || (currentGame.white_player_id ? 'Loading...' : 'Waiting for player...');
+  const blackName = blackProfile?.username || blackProfile?.display_name || (currentGame.black_player_id ? 'Loading...' : 'Waiting for opponent...');
+  
+  // Get opponent ID for voice chat
+  const opponentId = playerColor === 'w' ? currentGame.black_player_id : currentGame.white_player_id;
 
   return (
     <motion.div
@@ -363,6 +367,16 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
             timeRemaining={playerColor === 'w' ? whiteTimeRemaining : blackTimeRemaining}
             showTimer={!!currentGame.time_control}
           />
+          
+          {/* Voice Chat */}
+          {user && opponentId && currentGame.status === 'in_progress' && (
+            <VoiceChat
+              gameId={currentGame.id}
+              currentUserId={user.id}
+              opponentId={opponentId}
+              opponentName={playerColor === 'w' ? blackName : whiteName}
+            />
+          )}
           
           <MoveHistory moves={moveHistory} />
         </div>

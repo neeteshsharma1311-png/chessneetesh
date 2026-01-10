@@ -243,14 +243,14 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Time Control Selection */}
+                  {/* Time Control Selection - 10min minimum */}
                   <div className="space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Select Time Control</p>
                     <div className="grid grid-cols-3 gap-3">
                       {[
-                        { value: 60, label: 'Bullet', sublabel: '1 min', icon: '⚡' },
-                        { value: 300, label: 'Blitz', sublabel: '5 min', icon: '🔥' },
                         { value: 600, label: 'Rapid', sublabel: '10 min', icon: '⏱️' },
+                        { value: 900, label: 'Classical', sublabel: '15 min', icon: '🎯' },
+                        { value: 1800, label: 'Classical', sublabel: '30 min', icon: '♟️' },
                       ].map((preset) => (
                         <button
                           key={preset.value}

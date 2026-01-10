@@ -470,20 +470,27 @@ export const useOnlineGame = (userId: string | undefined) => {
     }
   }, [userId, chess, loadMoveHistory]);
 
-  const findRandomGame = useCallback(async (timeControl: number = 600) => {
+  const findRandomGame = useCallback(async (timeControl: number | null = 600) => {
     if (!userId) return null;
     setIsSearching(true);
 
     try {
-      const { data: waitingGames, error: fetchError } = await supabase
+      // Build query for matching games
+      let query = supabase
         .from('online_games')
         .select('*')
         .eq('status', 'waiting')
         .eq('game_type', 'random')
-        .eq('time_control', timeControl)
         .is('black_player_id', null)
-        .neq('white_player_id', userId)
-        .limit(1);
+        .neq('white_player_id', userId);
+      
+      if (timeControl === null) {
+        query = query.is('time_control', null);
+      } else {
+        query = query.eq('time_control', timeControl);
+      }
+
+      const { data: waitingGames, error: fetchError } = await query.limit(1);
 
       if (fetchError) throw fetchError;
 
@@ -506,7 +513,7 @@ export const useOnlineGame = (userId: string | undefined) => {
         chess.load(updatedGame.fen);
         setBoardPosition(chess.board());
         
-        // Initialize timers
+        // Initialize timers only if timed game
         if (updatedGame.time_control) {
           setWhiteTimeRemaining(updatedGame.white_time_remaining ?? updatedGame.time_control);
           setBlackTimeRemaining(updatedGame.black_time_remaining ?? updatedGame.time_control);
@@ -540,10 +547,12 @@ export const useOnlineGame = (userId: string | undefined) => {
 
       setCurrentGame(newGame);
       setPlayerColor('w');
-      setWhiteTimeRemaining(timeControl);
-      setBlackTimeRemaining(timeControl);
+      if (timeControl) {
+        setWhiteTimeRemaining(timeControl);
+        setBlackTimeRemaining(timeControl);
+      }
       
-      const timeLabel = timeControl === 600 ? 'Rapid (10 min)' : timeControl === 900 ? 'Classical (15 min)' : 'Classical (30 min)';
+      const timeLabel = timeControl === null ? 'Untimed' : timeControl === 600 ? 'Rapid (10 min)' : timeControl === 900 ? 'Classical (15 min)' : 'Classical (30 min)';
       toast({
         title: "Searching for opponent...",
         description: `${timeLabel} game. Waiting for another player.`,

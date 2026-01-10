@@ -1,11 +1,12 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { GameResult as GameResultType, PieceColor, Move } from '@/types/chess';
-import { Trophy, Handshake, Clock, Flag, RotateCcw, Home, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Trophy, Handshake, Clock, Flag, RotateCcw, Home, TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
 import MoveAnalysis from './MoveAnalysis';
+import GameAnalysis from './GameAnalysis';
 
 interface GameResultModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ const GameResultModal = forwardRef<HTMLDivElement, GameResultModalProps>(({
   winnerId,
   currentPlayerId,
 }, ref) => {
+  const [showAnalysis, setShowAnalysis] = useState(false);
   if (!result) return null;
 
   const RATING_CHANGE = 16;
@@ -211,28 +213,54 @@ const GameResultModal = forwardRef<HTMLDivElement, GameResultModalProps>(({
 
             {/* Actions */}
             <motion.div
-              className="flex gap-3"
+              className="flex flex-col gap-3"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 }}
             >
-              <Button
-                onClick={onRestart}
-                className="flex-1 glow-button"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                {isOnlineGame ? 'Rematch' : 'Play Again'}
-              </Button>
-              <Button
-                onClick={onNewGame}
-                variant="outline"
-                className="flex-1"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                {isOnlineGame ? 'Leave' : 'New Game'}
-              </Button>
+              {/* Analyze Game Button */}
+              {moves.length > 0 && (
+                <Button
+                  onClick={() => setShowAnalysis(true)}
+                  variant="secondary"
+                  className="w-full gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Analyze Game
+                </Button>
+              )}
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={onRestart}
+                  className="flex-1 glow-button"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {isOnlineGame ? 'Rematch' : 'Play Again'}
+                </Button>
+                <Button
+                  onClick={onNewGame}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  {isOnlineGame ? 'Leave' : 'New Game'}
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
+          
+          {/* Game Analysis Modal */}
+          <AnimatePresence>
+            {showAnalysis && (
+              <GameAnalysis
+                moves={moves}
+                whitePlayerName={whitePlayerName}
+                blackPlayerName={blackPlayerName}
+                onClose={() => setShowAnalysis(false)}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

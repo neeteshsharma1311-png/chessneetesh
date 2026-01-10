@@ -66,7 +66,7 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
   const [copied, setCopied] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<Profile[]>([]);
   const [waitingGames, setWaitingGames] = useState<number>(0);
-  const [selectedTimeControl, setSelectedTimeControl] = useState<number>(600);
+  const [selectedTimeControl, setSelectedTimeControl] = useState<number | null>(600);
 
   // Fetch online players and waiting games
   useEffect(() => {
@@ -243,17 +243,18 @@ const OnlineLobby: React.FC<OnlineLobbyProps> = ({ onBack }) => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Time Control Selection - 10min minimum */}
+                  {/* Time Control Selection */}
                   <div className="space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Select Time Control</p>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-3">
                       {[
+                        { value: null, label: 'Untimed', sublabel: 'No limit', icon: '♾️' },
                         { value: 600, label: 'Rapid', sublabel: '10 min', icon: '⏱️' },
                         { value: 900, label: 'Classical', sublabel: '15 min', icon: '🎯' },
                         { value: 1800, label: 'Classical', sublabel: '30 min', icon: '♟️' },
                       ].map((preset) => (
                         <button
-                          key={preset.value}
+                          key={preset.value ?? 'untimed'}
                           type="button"
                           className={`p-4 rounded-lg border-2 transition-all ${
                             selectedTimeControl === preset.value

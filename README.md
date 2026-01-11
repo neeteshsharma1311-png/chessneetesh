@@ -1,4 +1,4 @@
-# ♟ Online Chess Game
+# ♟ Online Chess Game..
 
 A modern, interactive web-based chess game built for players of all levels.  
 Designed with a clean UI, smooth gameplay, and responsive experience across all devices.

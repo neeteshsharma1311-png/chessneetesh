@@ -12,11 +12,13 @@ import HelpSection from './HelpSection';
 import Footer from './Footer';
 import OnlineLobby from './OnlineLobby';
 import OnlineGame from './OnlineGame';
+import PuzzleMode from './PuzzleMode';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChessGame } from '@/hooks/useChessGame';
 import { useTheme } from '@/hooks/useTheme';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { useWelcomeVoice } from '@/hooks/useWelcomeVoice';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnlineGame } from '@/hooks/useOnlineGame';
 import { GameResult, GameMode, AIDifficulty } from '@/types/chess';
@@ -43,12 +45,27 @@ const ChessGame: React.FC = () => {
   const { currentGame } = useOnlineGame(user?.id);
   const { theme, changeTheme } = useTheme();
   const { playMove, playCapture, playCheck, playGameOver, playClick, toggleSound, isSoundEnabled } = useSoundEffects();
+  const { playWelcome } = useWelcomeVoice();
   
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showResult, setShowResult] = useState(false);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [showOnlineGame, setShowOnlineGame] = useState(false);
+  const [showPuzzleMode, setShowPuzzleMode] = useState(false);
+
+  // Play welcome voice on first visit
+  useEffect(() => {
+    const hasVisited = sessionStorage.getItem('chess-welcome-played');
+    if (!hasVisited) {
+      // Delay to ensure page is loaded
+      const timer = setTimeout(() => {
+        playWelcome();
+        sessionStorage.setItem('chess-welcome-played', 'true');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [playWelcome]);
 
   // Handle game over
   useEffect(() => {
@@ -255,7 +272,17 @@ const ChessGame: React.FC = () => {
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center p-4">
         <AnimatePresence mode="wait">
-          {showOnlineGame && currentGame ? (
+          {showPuzzleMode ? (
+            <motion.div
+              key="puzzle-mode"
+              className="w-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <PuzzleMode onBack={() => setShowPuzzleMode(false)} />
+            </motion.div>
+          ) : showOnlineGame && currentGame ? (
             <motion.div
               key="online-game"
               className="w-full"
@@ -281,7 +308,11 @@ const ChessGame: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
             >
-              <GameSetup onStartGame={handleStartGame} onPlayOnline={handlePlayOnline} />
+              <GameSetup 
+                onStartGame={handleStartGame} 
+                onPlayOnline={handlePlayOnline}
+                onPlayPuzzle={() => setShowPuzzleMode(true)}
+              />
             </motion.div>
           ) : (
             <motion.div

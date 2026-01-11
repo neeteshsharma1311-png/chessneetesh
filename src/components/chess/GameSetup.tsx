@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GameMode, AIDifficulty } from '@/types/chess';
-import { Users, Bot, Zap, Brain, Flame, Clock, Globe } from 'lucide-react';
+import { Users, Bot, Zap, Brain, Flame, Clock, Globe, Puzzle } from 'lucide-react';
 
 interface GameSetupProps {
   onStartGame: (
@@ -18,10 +18,11 @@ interface GameSetupProps {
     timerDuration: number
   ) => void;
   onPlayOnline?: () => void;
+  onPlayPuzzle?: () => void;
 }
 
-const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onPlayOnline }, ref) => {
-  const [mode, setMode] = useState<GameMode>('pvp');
+const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onPlayOnline, onPlayPuzzle }, ref) => {
+  const [mode, setMode] = useState<GameMode | 'puzzle'>('pvp');
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
@@ -32,6 +33,10 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
     e.preventDefault();
     if (mode === 'online') {
       onPlayOnline?.();
+      return;
+    }
+    if (mode === 'puzzle') {
+      onPlayPuzzle?.();
       return;
     }
     const finalPlayer1Name = player1Name.trim() || 'Player 1';
@@ -62,7 +67,7 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
         {/* Game Mode Selection */}
         <div className="space-y-3">
           <Label className="text-base font-semibold">Game Mode</Label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <motion.button
               type="button"
               className={`p-4 rounded-lg border-2 transition-all ${
@@ -109,6 +114,22 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
               <Globe className="w-8 h-8 mx-auto mb-2 text-primary" />
               <p className="font-medium text-sm">Online</p>
               <p className="text-xs text-muted-foreground">Play friends</p>
+            </motion.button>
+
+            <motion.button
+              type="button"
+              className={`p-4 rounded-lg border-2 transition-all ${
+                mode === 'puzzle'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-secondary/50 hover:border-primary/50'
+              }`}
+              onClick={() => setMode('puzzle')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Puzzle className="w-8 h-8 mx-auto mb-2 text-primary" />
+              <p className="font-medium text-sm">Puzzles</p>
+              <p className="text-xs text-muted-foreground">Tactics</p>
             </motion.button>
           </div>
         </div>

@@ -13,6 +13,7 @@ import Footer from './Footer';
 import OnlineLobby from './OnlineLobby';
 import OnlineGame from './OnlineGame';
 import PuzzleMode from './PuzzleMode';
+import LoadingScreen from './LoadingScreen';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChessGame } from '@/hooks/useChessGame';
@@ -28,6 +29,7 @@ import { User, LogIn } from 'lucide-react';
 const ChessGame: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const {
     gameState,
     boardPosition,
@@ -54,18 +56,22 @@ const ChessGame: React.FC = () => {
   const [showOnlineGame, setShowOnlineGame] = useState(false);
   const [showPuzzleMode, setShowPuzzleMode] = useState(false);
 
-  // Play welcome voice on first visit
+  // Loading screen and welcome voice
   useEffect(() => {
-    const hasVisited = sessionStorage.getItem('chess-welcome-played');
-    if (!hasVisited) {
-      // Delay to ensure page is loaded
-      const timer = setTimeout(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      // Play welcome after loading completes
+      setTimeout(() => {
         playWelcome();
-        sessionStorage.setItem('chess-welcome-played', 'true');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
+      }, 500);
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [playWelcome]);
+
+  // Show loading screen
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   // Handle game over
   useEffect(() => {

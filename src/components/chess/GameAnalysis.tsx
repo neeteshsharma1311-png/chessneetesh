@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,13 @@ import {
   Target,
   Zap,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { Move } from '@/types/chess';
 import { Chess, Square } from 'chess.js';
+import { useAnalysisSounds } from '@/hooks/useAnalysisSounds';
 
 interface AnalyzedMove {
   moveIndex: number;
@@ -48,7 +51,10 @@ const GameAnalysis: React.FC<GameAnalysisProps> = ({
   onClose,
 }) => {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const chess = useMemo(() => new Chess(), []);
+  const { playClassification, playNavigate } = useAnalysisSounds();
+  const prevMoveIndexRef = useRef(0);
 
   // Analyze all moves
   const analyzedMoves = useMemo(() => {
@@ -327,6 +333,25 @@ const GameAnalysis: React.FC<GameAnalysisProps> = ({
 
   const currentAnalyzedMove = analyzedMoves[currentMoveIndex];
 
+  // Play sound when move index changes
+  useEffect(() => {
+    if (!soundEnabled || analyzedMoves.length === 0) return;
+    
+    const currentMove = analyzedMoves[currentMoveIndex];
+    if (currentMove && prevMoveIndexRef.current !== currentMoveIndex) {
+      // Play the classification sound for the current move
+      playClassification(currentMove.classification);
+      prevMoveIndexRef.current = currentMoveIndex;
+    }
+  }, [currentMoveIndex, analyzedMoves, soundEnabled, playClassification]);
+
+  // Handle move navigation with sound
+  const handleMoveChange = (newIndex: number) => {
+    if (newIndex !== currentMoveIndex) {
+      setCurrentMoveIndex(newIndex);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -340,9 +365,19 @@ const GameAnalysis: React.FC<GameAnalysisProps> = ({
             <Target className="w-5 h-5 text-primary" />
             Game Analysis
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-4">

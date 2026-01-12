@@ -1,104 +1,120 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
-// Create welcome voice using Web Speech API
+const STORAGE_KEY = 'chess_welcome_played';
+
 export const useWelcomeVoice = () => {
   const hasPlayedRef = useRef(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const voicesLoadedRef = useRef(false);
 
-  const playWelcome = useCallback(() => {
-    if (hasPlayedRef.current) return;
-    
-    // Check if speech synthesis is available
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(
-        "Hello! Welcome to Chess Master, developed by Neetesh. Enjoy your game!"
-      );
-      
-      // Configure voice settings for professional male voice
-      utterance.rate = 0.9;
-      utterance.pitch = 0.9;
-      utterance.volume = 0.8;
-      
-      // Try to get a male English voice
-      const voices = speechSynthesis.getVoices();
-      const maleVoice = voices.find(
-        voice => 
-          voice.lang.startsWith('en') && 
-          (voice.name.toLowerCase().includes('male') || 
-           voice.name.toLowerCase().includes('david') ||
-           voice.name.toLowerCase().includes('james') ||
-           voice.name.toLowerCase().includes('google uk english male') ||
-           voice.name.toLowerCase().includes('daniel'))
-      ) || voices.find(voice => voice.lang.startsWith('en'));
-      
-      if (maleVoice) {
-        utterance.voice = maleVoice;
-      }
-      
-      // Small delay to ensure voices are loaded
-      setTimeout(() => {
-        speechSynthesis.speak(utterance);
-        hasPlayedRef.current = true;
-      }, 500);
-    } else {
-      // Fallback to Web Audio API beep sequence
-      playBeepWelcome();
-    }
-  }, []);
-
-  const playBeepWelcome = useCallback(() => {
-    if (hasPlayedRef.current) return;
-    
-    try {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const ctx = audioContextRef.current;
-      
-      // Play a welcoming musical sequence
-      const notes = [523.25, 659.25, 783.99, 1046.50, 783.99]; // C5, E5, G5, C6, G5
-      const durations = [0.15, 0.15, 0.15, 0.3, 0.2];
-      
-      let startTime = ctx.currentTime + 0.1;
-      
-      notes.forEach((freq, i) => {
-        const oscillator = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        oscillator.frequency.value = freq;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.2, startTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + durations[i]);
-        
-        oscillator.start(startTime);
-        oscillator.stop(startTime + durations[i]);
-        
-        startTime += durations[i] * 0.8;
-      });
-      
-      hasPlayedRef.current = true;
-    } catch (e) {
-      console.log('Could not play welcome sound:', e);
-    }
-  }, []);
-
-  // Load voices when available
+  // Load voices on mount
   useEffect(() => {
     if ('speechSynthesis' in window) {
-      // Voices may not be available immediately
-      speechSynthesis.onvoiceschanged = () => {
-        // Voices are now loaded
+      const loadVoices = () => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          voicesLoadedRef.current = true;
+          setIsReady(true);
+        }
+      };
+
+      loadVoices();
+      speechSynthesis.onvoiceschanged = loadVoices;
+
+      return () => {
+        speechSynthesis.onvoiceschanged = null;
       };
     }
-    
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
   }, []);
 
-  return { playWelcome };
+  const playWelcome = useCallback(() => {
+    // Check if already played this session
+    if (hasPlayedRef.current) return;
+    if (typeof window !== 'undefined' && sessionStorage.getItem(STORAGE_KEY)) {
+      hasPlayedRef.current = true;
+      return;
+    }
+
+    hasPlayedRef.current = true;
+    sessionStorage.setItem(STORAGE_KEY, 'true');
+
+    // Use Web Speech API
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech first
+      speechSynthesis.cancel();
+
+      const speak = () => {
+        const utterance = new SpeechSynthesisUtterance(
+          "Hello! Welcome to Chess Master, developed by Neetesh. Enjoy your game!"
+        );
+
+        // Configure voice settings for professional voice
+        utterance.rate = 0.92;
+        utterance.pitch = 0.88;
+        utterance.volume = 0.85;
+
+        // Try to get the best available English voice
+        const voices = speechSynthesis.getVoices();
+        
+        // Priority order for voice selection
+        const preferredVoiceNames = [
+          'google uk english male',
+          'microsoft david',
+          'daniel',
+          'james',
+          'google us english',
+          'samantha',
+          'alex',
+        ];
+
+        let selectedVoice = null;
+        
+        // First try to find a preferred voice
+        for (const name of preferredVoiceNames) {
+          const found = voices.find(v => 
+            v.name.toLowerCase().includes(name) && v.lang.startsWith('en')
+          );
+          if (found) {
+            selectedVoice = found;
+            break;
+          }
+        }
+
+        // Fallback to any English voice
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith('en-')) || 
+                          voices.find(v => v.lang.startsWith('en'));
+        }
+
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+
+        utterance.onend = () => {
+          console.log('Welcome message completed');
+        };
+
+        utterance.onerror = (e) => {
+          console.log('Speech error:', e);
+        };
+
+        speechSynthesis.speak(utterance);
+      };
+
+      // Ensure voices are loaded before speaking
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        // Small delay to ensure everything is ready
+        setTimeout(speak, 300);
+      } else {
+        // Wait for voices to load
+        speechSynthesis.onvoiceschanged = () => {
+          setTimeout(speak, 300);
+          speechSynthesis.onvoiceschanged = null;
+        };
+      }
+    }
+  }, []);
+
+  return { playWelcome, isReady };
 };

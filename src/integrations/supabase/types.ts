@@ -46,6 +46,45 @@ export type Database = {
           },
         ]
       }
+      daily_puzzles: {
+        Row: {
+          created_at: string
+          description: string
+          difficulty: string
+          fen: string
+          id: string
+          name: string
+          player_color: string
+          puzzle_date: string
+          solution: string[]
+          theme: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          difficulty: string
+          fen: string
+          id?: string
+          name: string
+          player_color: string
+          puzzle_date: string
+          solution: string[]
+          theme: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          difficulty?: string
+          fen?: string
+          id?: string
+          name?: string
+          player_color?: string
+          puzzle_date?: string
+          solution?: string[]
+          theme?: string
+        }
+        Relationships: []
+      }
       friendships: {
         Row: {
           created_at: string
@@ -330,6 +369,232 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string
+        }
+        Relationships: []
+      }
+      tournament_matches: {
+        Row: {
+          black_player_id: string | null
+          completed_at: string | null
+          created_at: string
+          game_id: string | null
+          id: string
+          match_number: number
+          round: number
+          scheduled_at: string | null
+          status: string
+          tournament_id: string
+          white_player_id: string | null
+          winner_id: string | null
+        }
+        Insert: {
+          black_player_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          match_number: number
+          round: number
+          scheduled_at?: string | null
+          status?: string
+          tournament_id: string
+          white_player_id?: string | null
+          winner_id?: string | null
+        }
+        Update: {
+          black_player_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          match_number?: number
+          round?: number
+          scheduled_at?: string | null
+          status?: string
+          tournament_id?: string
+          white_player_id?: string | null
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_matches_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "online_games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_participants: {
+        Row: {
+          draws: number
+          eliminated: boolean
+          id: string
+          joined_at: string
+          losses: number
+          score: number
+          seed: number | null
+          tournament_id: string
+          user_id: string
+          wins: number
+        }
+        Insert: {
+          draws?: number
+          eliminated?: boolean
+          id?: string
+          joined_at?: string
+          losses?: number
+          score?: number
+          seed?: number | null
+          tournament_id: string
+          user_id: string
+          wins?: number
+        }
+        Update: {
+          draws?: number
+          eliminated?: boolean
+          id?: string
+          joined_at?: string
+          losses?: number
+          score?: number
+          seed?: number | null
+          tournament_id?: string
+          user_id?: string
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_participants_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          current_round: number
+          description: string | null
+          id: string
+          max_players: number
+          name: string
+          prize_pool: Json | null
+          started_at: string | null
+          status: string
+          time_control: number
+          total_rounds: number
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          current_round?: number
+          description?: string | null
+          id?: string
+          max_players?: number
+          name: string
+          prize_pool?: Json | null
+          started_at?: string | null
+          status?: string
+          time_control?: number
+          total_rounds?: number
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          current_round?: number
+          description?: string | null
+          id?: string
+          max_players?: number
+          name?: string
+          prize_pool?: Json | null
+          started_at?: string | null
+          status?: string
+          time_control?: number
+          total_rounds?: number
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
+      user_puzzle_progress: {
+        Row: {
+          attempts: number
+          completed_at: string
+          hints_used: number
+          id: string
+          puzzle_id: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string
+          hints_used?: number
+          id?: string
+          puzzle_id: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string
+          hints_used?: number
+          id?: string
+          puzzle_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_puzzle_progress_puzzle_id_fkey"
+            columns: ["puzzle_id"]
+            isOneToOne: false
+            referencedRelation: "daily_puzzles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_puzzle_streaks: {
+        Row: {
+          current_streak: number
+          id: string
+          last_completed_date: string | null
+          longest_streak: number
+          total_puzzles_solved: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_streak?: number
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          total_puzzles_solved?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_streak?: number
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          total_puzzles_solved?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

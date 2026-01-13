@@ -94,8 +94,8 @@ export const useWelcomeVoice = () => {
           console.log('Welcome message completed');
         };
 
-        utterance.onerror = (e) => {
-          console.log('Speech error:', e);
+        utterance.onerror = (event) => {
+          console.log('Speech error:', event.error || 'unknown error');
         };
 
         speechSynthesis.speak(utterance);

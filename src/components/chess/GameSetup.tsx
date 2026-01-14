@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GameMode, AIDifficulty } from '@/types/chess';
-import { Users, Bot, Zap, Brain, Flame, Clock, Globe, Puzzle } from 'lucide-react';
+import { Users, Bot, Zap, Brain, Flame, Clock, Globe, Puzzle, Calendar, Trophy } from 'lucide-react';
 
 interface GameSetupProps {
   onStartGame: (
@@ -19,10 +19,12 @@ interface GameSetupProps {
   ) => void;
   onPlayOnline?: () => void;
   onPlayPuzzle?: () => void;
+  onPlayDailyPuzzle?: () => void;
+  onPlayTournament?: () => void;
 }
 
-const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onPlayOnline, onPlayPuzzle }, ref) => {
-  const [mode, setMode] = useState<GameMode | 'puzzle'>('pvp');
+const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onPlayOnline, onPlayPuzzle, onPlayDailyPuzzle, onPlayTournament }, ref) => {
+  const [mode, setMode] = useState<GameMode | 'puzzle' | 'daily' | 'tournament'>('pvp');
   const [difficulty, setDifficulty] = useState<AIDifficulty>('medium');
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
@@ -39,9 +41,17 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
       onPlayPuzzle?.();
       return;
     }
+    if (mode === 'daily') {
+      onPlayDailyPuzzle?.();
+      return;
+    }
+    if (mode === 'tournament') {
+      onPlayTournament?.();
+      return;
+    }
     const finalPlayer1Name = player1Name.trim() || 'Player 1';
     const finalPlayer2Name = player2Name.trim() || 'Player 2';
-    onStartGame(mode, difficulty, finalPlayer1Name, finalPlayer2Name, useTimer, timerDuration);
+    onStartGame(mode as GameMode, difficulty, finalPlayer1Name, finalPlayer2Name, useTimer, timerDuration);
   };
 
   const timerOptions = [
@@ -131,6 +141,38 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
               <p className="font-medium text-sm">Puzzles</p>
               <p className="text-xs text-muted-foreground">Tactics</p>
             </motion.button>
+
+            <motion.button
+              type="button"
+              className={`p-4 rounded-lg border-2 transition-all ${
+                mode === 'daily'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-secondary/50 hover:border-primary/50'
+              }`}
+              onClick={() => setMode('daily')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Calendar className="w-8 h-8 mx-auto mb-2 text-primary" />
+              <p className="font-medium text-sm">Daily</p>
+              <p className="text-xs text-muted-foreground">Daily puzzle</p>
+            </motion.button>
+
+            <motion.button
+              type="button"
+              className={`p-4 rounded-lg border-2 transition-all ${
+                mode === 'tournament'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-secondary/50 hover:border-primary/50'
+              }`}
+              onClick={() => setMode('tournament')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Trophy className="w-8 h-8 mx-auto mb-2 text-primary" />
+              <p className="font-medium text-sm">Tournament</p>
+              <p className="text-xs text-muted-foreground">Compete</p>
+            </motion.button>
           </div>
         </div>
 
@@ -182,8 +224,8 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
           </motion.div>
         )}
 
-        {/* Player Names - only for local modes */}
-        {mode !== 'online' && (
+        {/* Player Names - only for local game modes */}
+        {(mode === 'pvp' || mode === 'ai') && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="player1">White Player Name</Label>
@@ -217,8 +259,8 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
           </div>
         )}
 
-        {/* Timer Settings - only for local modes */}
-        {mode !== 'online' && (
+        {/* Timer Settings - only for local game modes */}
+        {(mode === 'pvp' || mode === 'ai') && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -272,13 +314,43 @@ const GameSetup = forwardRef<HTMLDivElement, GameSetupProps>(({ onStartGame, onP
           </motion.div>
         )}
 
+        {/* Daily puzzle info */}
+        {mode === 'daily' && (
+          <motion.div
+            className="p-4 rounded-lg bg-primary/10 border border-primary/20"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <p className="text-sm text-center text-muted-foreground">
+              Solve today's puzzle and build your streak! Sign in to track progress.
+            </p>
+          </motion.div>
+        )}
+
+        {/* Tournament info */}
+        {mode === 'tournament' && (
+          <motion.div
+            className="p-4 rounded-lg bg-primary/10 border border-primary/20"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <p className="text-sm text-center text-muted-foreground">
+              Compete in tournaments with other players. Sign in required.
+            </p>
+          </motion.div>
+        )}
+
         {/* Start Button */}
         <Button
           type="submit"
           className="w-full glow-button text-lg py-6 font-display font-semibold"
           size="lg"
         >
-          {mode === 'online' ? 'Play Online' : 'Start Game'}
+          {mode === 'online' ? 'Play Online' : 
+           mode === 'daily' ? 'Daily Puzzle' :
+           mode === 'tournament' ? 'View Tournaments' :
+           mode === 'puzzle' ? 'Practice Puzzles' :
+           'Start Game'}
         </Button>
       </form>
     </motion.div>

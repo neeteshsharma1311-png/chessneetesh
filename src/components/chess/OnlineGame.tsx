@@ -8,6 +8,7 @@ import GameChat from './GameChat';
 import VoiceChat from './VoiceChat';
 import ConnectionStatus from './ConnectionStatus';
 import DrawOffer from './DrawOffer';
+import OpeningBook from './OpeningBook';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -367,6 +368,9 @@ const OnlineGame: React.FC<OnlineGameProps> = ({ onBack }) => {
             timeRemaining={playerColor === 'w' ? whiteTimeRemaining : blackTimeRemaining}
             showTimer={!!currentGame.time_control}
           />
+          
+          {/* Opening Book for online games */}
+          <OpeningBook moveHistory={moveHistory} />
           
           {/* Voice Chat */}
           {user && opponentId && currentGame.status === 'in_progress' && (

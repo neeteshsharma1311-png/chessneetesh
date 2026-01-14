@@ -14,6 +14,9 @@ import OnlineLobby from './OnlineLobby';
 import OnlineGame from './OnlineGame';
 import PuzzleMode from './PuzzleMode';
 import LoadingScreen from './LoadingScreen';
+import OpeningBook from './OpeningBook';
+import DailyPuzzle from './DailyPuzzle';
+import TournamentMode from './TournamentMode';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChessGame } from '@/hooks/useChessGame';
@@ -55,6 +58,8 @@ const ChessGame: React.FC = () => {
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [showOnlineGame, setShowOnlineGame] = useState(false);
   const [showPuzzleMode, setShowPuzzleMode] = useState(false);
+  const [showDailyPuzzle, setShowDailyPuzzle] = useState(false);
+  const [showTournament, setShowTournament] = useState(false);
 
   // Loading screen and welcome voice
   useEffect(() => {
@@ -67,11 +72,6 @@ const ChessGame: React.FC = () => {
     }, 2000);
     return () => clearTimeout(timer);
   }, [playWelcome]);
-
-  // Show loading screen
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
 
   // Handle game over
   useEffect(() => {
@@ -102,7 +102,12 @@ const ChessGame: React.FC = () => {
       
       setTimeout(() => setShowResult(true), 500);
     }
-  }, [gameState.gameOver, gameState.gameStarted, playGameOver]);
+  }, [gameState.gameOver, gameState.gameStarted, gameState.isStalemate, gameState.isDraw, gameState.isCheckmate, gameState.winner, gameState.players, gameState.moveHistory.length, playGameOver]);
+
+  // Show loading screen after all hooks
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   // Show online game when currentGame is in progress
   useEffect(() => {
@@ -278,7 +283,27 @@ const ChessGame: React.FC = () => {
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center p-4">
         <AnimatePresence mode="wait">
-          {showPuzzleMode ? (
+          {showDailyPuzzle ? (
+            <motion.div
+              key="daily-puzzle"
+              className="w-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <DailyPuzzle onBack={() => setShowDailyPuzzle(false)} />
+            </motion.div>
+          ) : showTournament ? (
+            <motion.div
+              key="tournament"
+              className="w-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <TournamentMode onBack={() => setShowTournament(false)} />
+            </motion.div>
+          ) : showPuzzleMode ? (
             <motion.div
               key="puzzle-mode"
               className="w-full"
@@ -318,6 +343,8 @@ const ChessGame: React.FC = () => {
                 onStartGame={handleStartGame} 
                 onPlayOnline={handlePlayOnline}
                 onPlayPuzzle={() => setShowPuzzleMode(true)}
+                onPlayDailyPuzzle={() => setShowDailyPuzzle(true)}
+                onPlayTournament={() => setShowTournament(true)}
               />
             </motion.div>
           ) : (
@@ -338,6 +365,9 @@ const ChessGame: React.FC = () => {
                     timeRemaining={gameState.players.black.timeRemaining}
                     showTimer={gameState.useTimer}
                   />
+                  
+                  {/* Opening Book for local games */}
+                  <OpeningBook moveHistory={gameState.moveHistory} />
                   
                   <div className="hidden lg:block">
                     <GameControls

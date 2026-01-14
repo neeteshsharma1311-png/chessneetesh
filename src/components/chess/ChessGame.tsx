@@ -104,10 +104,6 @@ const ChessGame: React.FC = () => {
     }
   }, [gameState.gameOver, gameState.gameStarted, gameState.isStalemate, gameState.isDraw, gameState.isCheckmate, gameState.winner, gameState.players, gameState.moveHistory.length, playGameOver]);
 
-  // Show loading screen after all hooks
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
 
   // Show online game when currentGame is in progress
   useEffect(() => {
@@ -177,6 +173,11 @@ const ChessGame: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undoMove, restartGame, playClick]);
+
+  // Show loading screen after ALL hooks are called
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   const handleSquareClick = (square: Square) => {
     playClick();
